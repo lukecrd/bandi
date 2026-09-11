@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-incentivi",
+      "schedule": "15 4 * * *"
+    },
+    {
+      "path": "/api/cron/sync-eu",
+      "schedule": "45 4 * * *"
+    }
+  ]
+}
