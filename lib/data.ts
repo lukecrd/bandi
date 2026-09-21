@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Customer, CustomerInput, Grant } from "@/lib/types";
+import type { Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
 
 export async function getDashboardStats() {
   const sql = db();
@@ -316,4 +316,35 @@ export async function getRecentSyncRuns() {
     started_at: string;
     finished_at: string | null;
   }>;
+}
+
+export async function getIntegrationToken(provider: string) {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT * FROM integration_tokens WHERE provider = $1 LIMIT 1`,
+    [provider]
+  );
+  return (rows[0] ?? null) as IntegrationToken | null;
+}
+
+export async function saveIntegrationToken(
+  provider: string,
+  tokens: { access_token: string; refresh_token: string; expires_at: string }
+) {
+  const sql = db();
+  await sql.query(
+    `INSERT INTO integration_tokens (provider, access_token, refresh_token, expires_at, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (provider) DO UPDATE SET
+       access_token = EXCLUDED.access_token,
+       refresh_token = EXCLUDED.refresh_token,
+       expires_at = EXCLUDED.expires_at,
+       updated_at = NOW()`,
+    [provider, tokens.access_token, tokens.refresh_token, tokens.expires_at]
+  );
+}
+
+export async function deleteIntegrationToken(provider: string) {
+  const sql = db();
+  await sql.query(`DELETE FROM integration_tokens WHERE provider = $1`, [provider]);
 }

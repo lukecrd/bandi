@@ -1,5 +1,6 @@
 import { fetchEUFunding } from "@/lib/sources/eu";
 import { fetchIncentiviGov } from "@/lib/sources/incentivi";
+import { fetchCamComLG } from "@/lib/sources/camcom-lg";
 import {
   closeExpiredGrants,
   finishSyncRun,
@@ -17,7 +18,9 @@ export async function runSync(source: SyncSource) {
     const grants =
       source === "incentivi"
         ? await fetchIncentiviGov()
-        : await fetchEUFunding();
+        : source === "camcom-lg"
+          ? await fetchCamComLG()
+          : await fetchEUFunding();
 
     const count = await upsertGrants(grants);
     await finishSyncRun(runId, "success", count, null);

@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/sync-eu",
       "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/sync-camcom-lg",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/cron/sync-teamleader",
+      "schedule": "0 3 * * *"
     }
   ]
 }

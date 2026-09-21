@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   finished_at TIMESTAMPTZ
 );
 
+CREATE TABLE IF NOT EXISTS integration_tokens (
+  provider TEXT PRIMARY KEY,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS customers_regione_idx ON customers(regione);
 CREATE INDEX IF NOT EXISTS customers_ateco_idx ON customers(ateco);
 CREATE INDEX IF NOT EXISTS grants_status_idx ON grants(status);

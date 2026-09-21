@@ -40,6 +40,7 @@ export default async function GrantsPage({
             <option value="">Tutte</option>
             <option value="Incentivi.gov.it">Incentivi.gov.it</option>
             <option value="EU Funding & Tenders">EU Funding & Tenders</option>
+            <option value="CCIAA Maremma e Tirreno">CCIAA Maremma e Tirreno</option>
           </select>
         </div>
         <div className="field">

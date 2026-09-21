@@ -62,4 +62,14 @@ export type MatchResult = {
   classe: "ALTA" | "MEDIA" | "BASSA";
 };
 
-export type SyncSource = "incentivi" | "eu";
+export type SyncSource = "incentivi" | "eu" | "camcom-lg";
+
+export type CustomerSyncSource = "teamleader";
+
+export type IntegrationToken = {
+  provider: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  updated_at: string;
+};

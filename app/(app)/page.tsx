@@ -90,7 +90,13 @@ export default async function Dashboard() {
             {syncs.slice(0, 6).map((run) => (
               <div key={run.id} className="actions" style={{ justifyContent: "space-between", borderTop: "1px solid #e4e7ec", paddingTop: 12 }}>
                 <div>
-                  <strong>{run.source === "eu" ? "Funding & Tenders UE" : "Incentivi.gov.it"}</strong>
+                  <strong>
+                    {run.source === "eu"
+                      ? "Funding & Tenders UE"
+                      : run.source === "camcom-lg"
+                        ? "CCIAA Maremma e Tirreno"
+                        : "Incentivi.gov.it"}
+                  </strong>
                   <div className="muted small">{formatDate(run.started_at)} · {run.records} record</div>
                 </div>
                 <StatusBadge value={run.status} />

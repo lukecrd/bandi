@@ -6,7 +6,7 @@ export function SyncButtons() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  async function run(source: "incentivi" | "eu") {
+  async function run(source: "incentivi" | "eu" | "camcom-lg") {
     setBusy(source);
     setMessage("");
 
@@ -23,7 +23,9 @@ export function SyncButtons() {
       return;
     }
 
-    setMessage(`${source === "eu" ? "UE" : "Italia"}: ${result.records} bandi aggiornati.`);
+    const label =
+      source === "eu" ? "UE" : source === "camcom-lg" ? "CCIAA Maremma e Tirreno" : "Italia";
+    setMessage(`${label}: ${result.records} bandi aggiornati.`);
     setBusy(null);
     setTimeout(() => window.location.reload(), 800);
   }
@@ -36,6 +38,9 @@ export function SyncButtons() {
         </button>
         <button className="btn secondary" onClick={() => run("eu")} disabled={Boolean(busy)}>
           {busy === "eu" ? "Sincronizzazione…" : "Sincronizza UE"}
+        </button>
+        <button className="btn secondary" onClick={() => run("camcom-lg")} disabled={Boolean(busy)}>
+          {busy === "camcom-lg" ? "Sincronizzazione…" : "Sincronizza CCIAA Maremma e Tirreno"}
         </button>
       </div>
       {message && <div className={message.includes("fallita") ? "error" : "success-box"}>{message}</div>}
