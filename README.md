@@ -32,7 +32,7 @@ Applicazione web Next.js per la ricerca di bandi pubblici in Italia e Europa, la
 ## Stack Tecnologico
 
 - **Frontend**: Next.js 16 + React 19 + TypeScript + Tailwind CSS v4
-- **Database**: SQLite (better-sqlite3)
+- **Database**: Postgres (Neon, `@neondatabase/serverless`)
 - **Grafici**: Recharts
 - **Importazione**: SheetJS (xlsx)
 - **Icone**: Lucide React
@@ -42,6 +42,9 @@ Applicazione web Next.js per la ricerca di bandi pubblici in Italia e Europa, la
 ```bash
 # Installa le dipendenze
 npm install
+
+# Imposta DATABASE_URL in .env.local, poi crea le tabelle
+npm run db:init
 
 # Popola il database con dati di esempio
 npm run seed

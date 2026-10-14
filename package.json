@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "npx tsx scripts/seed.ts",
-    "postinstall": "echo 'Run npm run seed to populate data'"
+    "db:init": "node --env-file-if-exists=.env.local scripts/init-db.mjs",
+    "seed": "node --env-file-if-exists=.env.local scripts/seed.mjs",
+    "postinstall": "echo 'Run npm run db:init && npm run seed to set up the database'"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
