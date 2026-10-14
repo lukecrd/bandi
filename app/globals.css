@@ -265,6 +265,21 @@ td.empty { text-align: center; padding: 40px 14px; }
   font-size: 12px;
 }
 
+.alert-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  color: var(--text);
+  box-shadow: 0 20px 50px rgba(16, 24, 40, .18);
+}
+.alert-dialog::backdrop { background: rgba(16, 24, 40, .45); }
+.alert-head h2 { margin: 0 0 4px; font-size: 20px; }
+.alert-list { list-style: none; margin: 16px 0 8px; padding: 0; display: grid; gap: 12px; }
+.alert-list li { padding-top: 12px; border-top: 1px solid var(--line); }
+.alert-actions { justify-content: flex-end; margin-top: 16px; }
+
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; }

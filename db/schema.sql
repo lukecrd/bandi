@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS grants (
   synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- momento del primo inserimento (l'upsert non lo aggiorna): serve agli alert "nuovi bandi"
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE TABLE IF NOT EXISTS sync_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source TEXT NOT NULL,
@@ -70,5 +73,6 @@ CREATE INDEX IF NOT EXISTS customers_ateco_idx ON customers(ateco);
 CREATE INDEX IF NOT EXISTS grants_status_idx ON grants(status);
 CREATE INDEX IF NOT EXISTS grants_source_idx ON grants(source);
 CREATE INDEX IF NOT EXISTS grants_deadline_idx ON grants(deadline);
+CREATE INDEX IF NOT EXISTS grants_first_seen_idx ON grants(first_seen_at);
 CREATE INDEX IF NOT EXISTS grants_regions_gin_idx ON grants USING GIN(regions);
 CREATE INDEX IF NOT EXISTS grants_topics_gin_idx ON grants USING GIN(topics);

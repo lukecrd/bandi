@@ -206,6 +206,31 @@ export async function getGrants(options?: {
   return rows as Grant[];
 }
 
+export type NewGrant = Pick<Grant, "id" | "title" | "source" | "status" | "deadline" | "url" | "regions">;
+
+/** Bandi aperti/in arrivo comparsi per la prima volta dopo `since`. */
+export async function getNewGrants(since: string, limit = 20) {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT id, title, source, status, deadline, url, regions,
+            COUNT(*) OVER()::int AS total, NOW() AS checked_at
+     FROM grants
+     WHERE first_seen_at > $1
+       AND status IN ('Aperto', 'In arrivo')
+     ORDER BY first_seen_at DESC, deadline NULLS LAST
+     LIMIT $2`,
+    [since, limit]
+  );
+  return {
+    total: rows.length ? Number(rows[0].total) : 0,
+    checkedAt: rows.length ? new Date(rows[0].checked_at).toISOString() : null,
+    grants: rows.map((r) => ({
+      id: r.id, title: r.title, source: r.source, status: r.status,
+      deadline: r.deadline, url: r.url, regions: r.regions,
+    })) as NewGrant[],
+  };
+}
+
 export async function getGrantRegions() {
   const sql = db();
   const rows = await sql.query(
