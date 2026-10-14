@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# file con credenziali anche senza punto iniziale
+env.local
+*.env.local
