@@ -62,7 +62,7 @@ export type MatchResult = {
   classe: "ALTA" | "MEDIA" | "BASSA";
 };
 
-export type SyncSource = "incentivi" | "eu" | "camcom-lg";
+export type { SyncSource } from "@/lib/sync-sources";
 
 export type CustomerSyncSource = "teamleader";
 

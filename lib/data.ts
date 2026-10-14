@@ -178,12 +178,14 @@ export async function getGrants(options?: {
   search?: string;
   source?: string;
   status?: string;
+  region?: string;
   limit?: number;
 }) {
   const sql = db();
   const search = options?.search ?? "";
   const source = options?.source ?? "";
   const status = options?.status ?? "";
+  const region = options?.region ?? "";
   const limit = Math.min(Math.max(options?.limit ?? 2000, 1), 10000);
 
   const rows = await sql.query(
@@ -192,14 +194,27 @@ export async function getGrants(options?: {
      WHERE ($1 = '' OR title ILIKE '%' || $1 || '%' OR COALESCE(ente,'') ILIKE '%' || $1 || '%')
        AND ($2 = '' OR source = $2)
        AND ($3 = '' OR status = $3)
+       -- national grants ('ITALIA') apply to every region
+       AND ($5 = '' OR $5 = ANY(regions) OR 'ITALIA' = ANY(regions))
      ORDER BY
        CASE status WHEN 'Aperto' THEN 0 WHEN 'In arrivo' THEN 1 ELSE 2 END,
        deadline NULLS LAST,
        title
      LIMIT $4`,
-    [search, source, status, limit]
+    [search, source, status, limit, region]
   );
   return rows as Grant[];
+}
+
+export async function getGrantRegions() {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT DISTINCT r AS region
+     FROM grants, unnest(regions) AS r
+     WHERE r <> 'ITALIA'
+     ORDER BY r`
+  );
+  return rows.map((row) => String(row.region));
 }
 
 export async function getActiveGrants(limit = 10000) {

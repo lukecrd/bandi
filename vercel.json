@@ -13,6 +13,18 @@
       "schedule": "15 5 * * *"
     },
     {
+      "path": "/api/cron/sync-source/sviluppo-toscana",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/sync-source/camcom-fi",
+      "schedule": "45 5 * * *"
+    },
+    {
+      "path": "/api/cron/sync-source/camcom-bg",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/sync-teamleader",
       "schedule": "0 3 * * *"
     }

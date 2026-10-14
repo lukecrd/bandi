@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { SYNC_SOURCES, type SyncSource } from "@/lib/sync-sources";
 
 export function SyncButtons() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  async function run(source: "incentivi" | "eu" | "camcom-lg") {
+  async function run(source: SyncSource) {
     setBusy(source);
     setMessage("");
 
@@ -23,9 +24,7 @@ export function SyncButtons() {
       return;
     }
 
-    const label =
-      source === "eu" ? "UE" : source === "camcom-lg" ? "CCIAA Maremma e Tirreno" : "Italia";
-    setMessage(`${label}: ${result.records} bandi aggiornati.`);
+    setMessage(`${SYNC_SOURCES[source]}: ${result.records} bandi aggiornati.`);
     setBusy(null);
     setTimeout(() => window.location.reload(), 800);
   }
@@ -33,17 +32,18 @@ export function SyncButtons() {
   return (
     <div className="grid">
       <div className="actions">
-        <button className="btn" onClick={() => run("incentivi")} disabled={Boolean(busy)}>
-          {busy === "incentivi" ? "Sincronizzazione…" : "Sincronizza Italia"}
-        </button>
-        <button className="btn secondary" onClick={() => run("eu")} disabled={Boolean(busy)}>
-          {busy === "eu" ? "Sincronizzazione…" : "Sincronizza UE"}
-        </button>
-        <button className="btn secondary" onClick={() => run("camcom-lg")} disabled={Boolean(busy)}>
-          {busy === "camcom-lg" ? "Sincronizzazione…" : "Sincronizza CCIAA Maremma e Tirreno"}
-        </button>
+        {(Object.keys(SYNC_SOURCES) as SyncSource[]).map((source, i) => (
+          <button
+            key={source}
+            className={i === 0 ? "btn" : "btn secondary"}
+            onClick={() => run(source)}
+            disabled={Boolean(busy)}
+          >
+            {busy === source ? "Sincronizzazione…" : `Sincronizza ${SYNC_SOURCES[source]}`}
+          </button>
+        ))}
       </div>
-      {message && <div className={message.includes("fallita") ? "error" : "success-box"}>{message}</div>}
+      {message && <div className={message.includes("bandi aggiornati") ? "success-box" : "error"}>{message}</div>}
     </div>
   );
 }

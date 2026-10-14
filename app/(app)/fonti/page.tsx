@@ -1,6 +1,7 @@
 import { StatusBadge } from "@/components/status-badge";
 import { SyncButtons } from "@/components/sync-buttons";
 import { getRecentSyncRuns } from "@/lib/data";
+import { sourceLabel } from "@/lib/sync-sources";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,29 @@ export default async function SourcesPage() {
           </p>
           <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.lg.camcom.it/bandi">Apri il portale</a>
         </section>
+
+        <section className="card source-card">
+          <span className="badge open">Fonte regionale</span>
+          <strong>Sviluppo Toscana</strong>
+          <p className="muted">
+            Bandi FESR e regionali gestiti per Regione Toscana. Il connettore legge l&apos;elenco dei bandi
+            aperti e in arrivo e, dal dettaglio, destinatari, temi e scadenza.
+          </p>
+          <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.sviluppo.toscana.it/bandi/">Apri il portale</a>
+        </section>
+
+        <section className="card source-card">
+          <span className="badge open">Fonte camerale</span>
+          <strong>CCIAA Firenze e CCIAA Bergamo</strong>
+          <p className="muted">
+            Stesso template del sito della CCIAA Maremma e Tirreno: lo scraper camerale è condiviso.
+            Per aggiungere un&apos;altra Camera basta una voce in <code>lib/sources/camcom.ts</code>.
+          </p>
+          <div className="actions">
+            <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.fi.camcom.gov.it/bandi">Firenze</a>
+            <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.bg.camcom.it/bandi">Bergamo</a>
+          </div>
+        </section>
       </div>
 
       <div style={{ height: 18 }} />
@@ -61,13 +85,16 @@ export default async function SourcesPage() {
       <section className="card">
         <h2>Automazione</h2>
         <p>
-          Vercel Cron esegue tre job separati ogni giorno. Su piani con precisione al minuto sono configurati
-          alle 04:15, 04:45 e 05:15 UTC; su Hobby l'esecuzione può avvenire in qualunque momento dell'ora.
+          Vercel Cron esegue un job separato per ogni fonte, ogni giorno. Su piani con precisione al minuto
+          gli orari sono quelli indicati; su Hobby l&apos;esecuzione può avvenire in qualunque momento dell&apos;ora.
         </p>
         <div className="code">{`vercel.json
 04:15 UTC  /api/cron/sync-incentivi
 04:45 UTC  /api/cron/sync-eu
-05:15 UTC  /api/cron/sync-camcom-lg`}</div>
+05:15 UTC  /api/cron/sync-camcom-lg
+05:30 UTC  /api/cron/sync-source/sviluppo-toscana
+05:45 UTC  /api/cron/sync-source/camcom-fi
+06:00 UTC  /api/cron/sync-source/camcom-bg`}</div>
       </section>
 
       <div style={{ height: 18 }} />
@@ -87,13 +114,7 @@ export default async function SourcesPage() {
           <tbody>
             {runs.map((run) => (
               <tr key={run.id}>
-                <td>
-                  {run.source === "eu"
-                    ? "EU Funding & Tenders"
-                    : run.source === "camcom-lg"
-                      ? "CCIAA Maremma e Tirreno"
-                      : "Incentivi.gov.it"}
-                </td>
+                <td>{sourceLabel(run.source)}</td>
                 <td><StatusBadge value={run.status} /></td>
                 <td>{run.records}</td>
                 <td>{dt(run.started_at)}</td>

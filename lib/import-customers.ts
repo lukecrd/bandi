@@ -126,7 +126,9 @@ export async function parseCustomerFile(file: File) {
     rawRows = parseCsv(await file.text());
   } else if (name.endsWith(".xlsx")) {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()));
+    // exceljs's Buffer typing predates @types/node's generic Buffer; runtime value is unchanged
+    const data = Buffer.from(await file.arrayBuffer()) as unknown as Parameters<typeof workbook.xlsx.load>[0];
+    await workbook.xlsx.load(data);
     const sheet = workbook.worksheets[0];
     if (!sheet) throw new Error("Il file Excel non contiene fogli.");
 
