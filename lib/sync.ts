@@ -1,6 +1,7 @@
 import { fetchEUFunding } from "@/lib/sources/eu";
 import { fetchIncentiviGov } from "@/lib/sources/incentivi";
-import { fetchCamComLG } from "@/lib/sources/camcom-lg";
+import { CHAMBERS, fetchCamCom } from "@/lib/sources/camcom";
+import { fetchSviluppoToscana } from "@/lib/sources/sviluppo-toscana";
 import {
   closeExpiredGrants,
   finishSyncRun,
@@ -9,18 +10,22 @@ import {
 } from "@/lib/data";
 import type { SyncSource } from "@/lib/types";
 
+function fetchSource(source: SyncSource) {
+  switch (source) {
+    case "incentivi": return fetchIncentiviGov();
+    case "eu": return fetchEUFunding();
+    case "sviluppo-toscana": return fetchSviluppoToscana();
+    default: return fetchCamCom(CHAMBERS[source]);
+  }
+}
+
 export async function runSync(source: SyncSource) {
   const runId = await startSyncRun(source);
 
   try {
     await closeExpiredGrants();
 
-    const grants =
-      source === "incentivi"
-        ? await fetchIncentiviGov()
-        : source === "camcom-lg"
-          ? await fetchCamComLG()
-          : await fetchEUFunding();
+    const grants = await fetchSource(source);
 
     const count = await upsertGrants(grants);
     await finishSyncRun(runId, "success", count, null);

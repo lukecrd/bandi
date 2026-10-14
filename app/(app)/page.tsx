@@ -8,6 +8,7 @@ import {
   getRecentSyncRuns,
 } from "@/lib/data";
 import { scoreAll } from "@/lib/scoring";
+import { sourceLabel } from "@/lib/sync-sources";
 
 export const dynamic = "force-dynamic";
 
@@ -90,13 +91,7 @@ export default async function Dashboard() {
             {syncs.slice(0, 6).map((run) => (
               <div key={run.id} className="actions" style={{ justifyContent: "space-between", borderTop: "1px solid #e4e7ec", paddingTop: 12 }}>
                 <div>
-                  <strong>
-                    {run.source === "eu"
-                      ? "Funding & Tenders UE"
-                      : run.source === "camcom-lg"
-                        ? "CCIAA Maremma e Tirreno"
-                        : "Incentivi.gov.it"}
-                  </strong>
+                  <strong>{sourceLabel(run.source)}</strong>
                   <div className="muted small">{formatDate(run.started_at)} · {run.records} record</div>
                 </div>
                 <StatusBadge value={run.status} />

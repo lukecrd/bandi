@@ -1,11 +1,41 @@
 import * as cheerio from "cheerio";
 import type { Grant } from "@/lib/types";
 
-// CCIAA Maremma e Tirreno (Livorno + Grosseto). Il sito è un Drupal 9 senza
-// API pubblica: la fonte dei dati è la pagina /bandi (elenco paginato) più,
-// opzionalmente, le pagine di dettaglio di ogni singolo bando.
-const BASE_URL = "https://www.lg.camcom.it";
-const ENTE = "CCIAA Maremma e Tirreno";
+// Camere di Commercio sul template Drupal InfoCamere, senza API pubblica:
+// la fonte dei dati è la pagina /bandi (elenco paginato) più, opzionalmente,
+// le pagine di dettaglio di ogni singolo bando.
+export type Chamber = {
+  idPrefix: string;
+  baseUrl: string;
+  ente: string;
+  region: string;
+  area: string;
+};
+
+export const CHAMBERS = {
+  "camcom-lg": {
+    idPrefix: "CAMCOM-LG",
+    baseUrl: "https://www.lg.camcom.it",
+    ente: "CCIAA Maremma e Tirreno",
+    region: "Toscana",
+    area: "nelle province di Livorno e Grosseto",
+  },
+  "camcom-fi": {
+    idPrefix: "CAMCOM-FI",
+    baseUrl: "https://www.fi.camcom.gov.it",
+    ente: "CCIAA Firenze",
+    region: "Toscana",
+    area: "nella città metropolitana di Firenze",
+  },
+  "camcom-bg": {
+    idPrefix: "CAMCOM-BG",
+    baseUrl: "https://www.bg.camcom.it",
+    ente: "CCIAA Bergamo",
+    region: "Lombardia",
+    area: "in provincia di Bergamo",
+  },
+} satisfies Record<string, Chamber>;
+
 const USER_AGENT = "BandiMatch/1.0 (+matching bandi-clienti; contatto: imposta CAMCOM_LG_CONTACT)";
 
 const MONTHS_IT: Record<string, string> = {
@@ -23,33 +53,33 @@ const MONTHS_IT: Record<string, string> = {
   dic: "12",
 };
 
-function sleep(ms: number) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchHtml(url: string): Promise<string> {
+export async function fetchHtml(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error(`CCIAA Maremma e Tirreno HTTP ${response.status} (${url})`);
+    throw new Error(`HTTP ${response.status} (${url})`);
   }
   return response.text();
 }
 
-/** Converte "30/09/2026" -> "2026-09-30". Ignora testo aggiuntivo tipo "salvo chiusura anticipata…". */
-function parseSlashDate(raw: string | null): string | null {
+/** Converte "30/09/2026" o "ore 16:00 del 1/12/2026" -> ISO. Ignora testo aggiuntivo tipo "salvo chiusura anticipata…". */
+export function parseSlashDate(raw: string | null): string | null {
   if (!raw) return null;
-  const match = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const match = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (!match) return null;
   const [, dd, mm, yyyy] = match;
-  const iso = `${yyyy}-${mm}-${dd}`;
+  const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   return Number.isNaN(new Date(iso).getTime()) ? null : iso;
 }
 
-/** Converte "Ven 31 Lug, 2026" -> "2026-07-31". */
-function parseItalianLongDate(raw: string | null): string | null {
+/** Converte "Ven 31 Lug, 2026" o "28 Ottobre 2026" -> "2026-07-31". */
+export function parseItalianLongDate(raw: string | null): string | null {
   if (!raw) return null;
   const match = raw
     .toLocaleLowerCase("it-IT")
@@ -69,6 +99,9 @@ function normalizeStatus(raw: string | null, deadline: string | null): {
   const value = (raw ?? "").trim();
   const lower = value.toLocaleLowerCase("it-IT");
 
+  if (lower.includes("prossima apertura")) {
+    return { status: "In arrivo", originalLabel: "Di prossima apertura" };
+  }
   if (lower.includes("rendicontazione")) {
     return { status: "Chiuso", originalLabel: "In rendicontazione" };
   }
@@ -87,7 +120,7 @@ function normalizeStatus(raw: string | null, deadline: string | null): {
   return { status: "Aperto", originalLabel: null };
 }
 
-function inferTopics(text: string): string[] {
+export function inferTopics(text: string): string[] {
   const value = text.toLocaleLowerCase("it-IT");
   const topics = new Set<string>();
 
@@ -126,10 +159,11 @@ type ListedBando = {
   publishedRaw: string | null;
 };
 
-function extractListingPage($: cheerio.CheerioAPI): ListedBando[] {
+function extractListingPage($: cheerio.CheerioAPI, chamber: Chamber): ListedBando[] {
   const seen = new Map<string, ListedBando>();
+  const host = new URL(chamber.baseUrl).host;
 
-  $("a[href^='/bandi/'], a[href*='lg.camcom.it/bandi/']").each((_, el) => {
+  $(`a[href^='/bandi/'], a[href*='${host}/bandi/']`).each((_, el) => {
     const href = $(el).attr("href");
     if (!href) return;
 
@@ -148,17 +182,19 @@ function extractListingPage($: cheerio.CheerioAPI): ListedBando[] {
     for (let i = 0; i < 6; i++) {
       container = container.parent();
       if (!container.length) break;
-      text = container.text();
+      text = container.text().replace(/\s+/g, " ");
       if (/scade:/i.test(text) || /\b(aperto|chiuso|rendicontazione)\b/i.test(text)) break;
     }
 
-    const statusRaw = text.match(/\b(Aperto|Chiuso|In rendicontazione)\b/i)?.[0] ?? null;
-    const deadlineRaw = text.match(/Scade:[^\n]*/i)?.[0] ?? null;
-    const publishedRaw = text.match(/\b\w{3}\s+\d{1,2}\s+\w{3,4},?\s+\d{4}\b/)?.[0] ?? null;
+    const statusRaw = text.match(/\b(Di prossima apertura|Aperto|Chiuso|In rendicontazione)\b/i)?.[0] ?? null;
+    // "Scade: <data> ID: <data pubblicazione>"; il formato della scadenza varia per Camera
+    const deadlineRaw = text.match(/Scade:\s*(.*?)\s*(?:ID:|$)/i)?.[1] || null;
+    const afterId = text.split(/ID:/i)[1] ?? text;
+    const publishedRaw = afterId.match(/\b\w{3}\s+\d{1,2}\s+\w{3,4},?\s+\d{4}\b/)?.[0] ?? null;
 
     seen.set(slug, {
       title,
-      url: href.startsWith("http") ? href : `${BASE_URL}${href}`,
+      url: href.startsWith("http") ? href : `${chamber.baseUrl}${href}`,
       slug,
       statusRaw,
       deadlineRaw,
@@ -184,8 +220,8 @@ async function fetchDetailText(url: string): Promise<string | null> {
   }
 }
 
-function mapToGrant(item: ListedBando, detailText: string | null): Grant {
-  const deadline = parseSlashDate(item.deadlineRaw);
+function mapToGrant(item: ListedBando, detailText: string | null, chamber: Chamber): Grant {
+  const deadline = parseSlashDate(item.deadlineRaw) ?? parseItalianLongDate(item.deadlineRaw);
   const { status, originalLabel } = normalizeStatus(item.statusRaw, deadline);
   const publishedAt = parseItalianLongDate(item.publishedRaw);
 
@@ -196,17 +232,17 @@ function mapToGrant(item: ListedBando, detailText: string | null): Grant {
     originalLabel && originalLabel !== status
       ? `Stato pubblicato sul sito camerale: ${originalLabel}.`
       : null,
-    "Bando camerale riservato alle imprese con sede nelle province di Livorno e Grosseto.",
+    `Bando camerale riservato alle imprese con sede ${chamber.area}.`,
     detailText ?? "Verificare i requisiti completi sulla pagina ufficiale del bando.",
   ].filter(Boolean);
 
   return {
-    id: `CAMCOM-LG-${item.slug}`,
+    id: `${chamber.idPrefix}-${item.slug}`,
     title: item.title,
-    ente: ENTE,
+    ente: chamber.ente,
     level: "Camerale",
     status,
-    regions: ["Toscana"],
+    regions: [chamber.region],
     sizes: ["Micro", "Piccola", "Media"],
     ateco_filter: ["*"],
     topics,
@@ -217,7 +253,7 @@ function mapToGrant(item: ListedBando, detailText: string | null): Grant {
     aid_type: "Contributo/voucher camerale",
     budget: null,
     url: item.url,
-    source: "CCIAA Maremma e Tirreno",
+    source: chamber.ente,
     source_updated_at: null,
     requirements: requirementsParts.join(" | "),
     raw: item,
@@ -225,7 +261,8 @@ function mapToGrant(item: ListedBando, detailText: string | null): Grant {
   };
 }
 
-export async function fetchCamComLG(): Promise<Grant[]> {
+// I parametri CAMCOM_LG_* valgono per tutte le Camere (nomi storici).
+export async function fetchCamCom(chamber: Chamber): Promise<Grant[]> {
   const maxPages = Math.max(1, Number(process.env.CAMCOM_LG_MAX_PAGES ?? 10));
   const fetchDetails = String(process.env.CAMCOM_LG_FETCH_DETAILS ?? "true").toLowerCase() !== "false";
   const delayMs = Math.max(0, Number(process.env.CAMCOM_LG_DELAY_MS ?? 400));
@@ -233,10 +270,10 @@ export async function fetchCamComLG(): Promise<Grant[]> {
   const bySlug = new Map<string, ListedBando>();
 
   for (let page = 0; page < maxPages; page++) {
-    const url = `${BASE_URL}/bandi${page > 0 ? `?page=${page}` : ""}`;
+    const url = `${chamber.baseUrl}/bandi${page > 0 ? `?page=${page}` : ""}`;
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
-    const found = extractListingPage($);
+    const found = extractListingPage($, chamber);
 
     let hasNew = false;
     for (const item of found) {
@@ -254,9 +291,11 @@ export async function fetchCamComLG(): Promise<Grant[]> {
   const grants: Grant[] = [];
 
   for (const item of items) {
-    const detailText = fetchDetails ? await fetchDetailText(item.url) : null;
-    grants.push(mapToGrant(item, detailText));
-    if (fetchDetails) await sleep(delayMs);
+    // i bandi chiusi non servono al matching: niente dettaglio, sync più veloce
+    const wantDetail = fetchDetails && normalizeStatus(item.statusRaw, null).status !== "Chiuso";
+    const detailText = wantDetail ? await fetchDetailText(item.url) : null;
+    grants.push(mapToGrant(item, detailText, chamber));
+    if (wantDetail) await sleep(delayMs);
   }
 
   return grants;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { runSync } from "@/lib/sync";
-import type { SyncSource } from "@/lib/types";
+import { isSyncSource } from "@/lib/sync-sources";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -8,9 +8,9 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const source = body.source as SyncSource;
+    const source = body.source;
 
-    if (source !== "incentivi" && source !== "eu") {
+    if (!isSyncSource(source)) {
       return NextResponse.json(
         { error: "Fonte non valida." },
         { status: 400 }
