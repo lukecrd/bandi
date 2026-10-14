@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SCORE_WEIGHTS } from "@/lib/scoring";
 import type { MatchResult } from "@/lib/types";
 
@@ -12,19 +13,23 @@ const CRITERIA = [
 
 const TICKS = [0, 25, 50, 75, 100];
 
-function date(value: string | null) {
-  return value ? new Intl.DateTimeFormat("it-IT").format(new Date(value)) : "—";
-}
+export type MatchChartItem = {
+  id: string;
+  label: string;
+  detail: string;
+  href?: string;
+  match: MatchResult;
+};
 
-/** Barre orizzontali della compatibilità cliente–bando (0–100), con soglie di classe. */
-export function MatchChart({ matches }: { matches: MatchResult[] }) {
-  if (!matches.length) {
-    return <p className="muted">Nessun bando attivo supera la soglia minima di compatibilità per questo cliente.</p>;
+/** Barre orizzontali della compatibilità (0–100), con soglie di classe. */
+export function MatchChart({ items, labelHeader }: { items: MatchChartItem[]; labelHeader: string }) {
+  if (!items.length) {
+    return <p className="muted">Nessun risultato supera la soglia minima di compatibilità.</p>;
   }
 
   return (
     <>
-      <div className="mchart" role="img" aria-label={`Compatibilità dei primi ${matches.length} bandi, da 0 a 100`}>
+      <div className="mchart" role="img" aria-label={`Compatibilità di ${items.length} elementi, da 0 a 100`}>
         <div className="mchart-axis" aria-hidden="true">
           {TICKS.map((t) => (
             <span key={t} style={{ left: `${t}%` }}>{t}</span>
@@ -33,9 +38,9 @@ export function MatchChart({ matches }: { matches: MatchResult[] }) {
           <span className="mchart-threshold-label" style={{ left: "75%" }}>Alta</span>
         </div>
 
-        {matches.map((m) => (
-          <div className="mchart-row" key={m.grant.id} tabIndex={0}>
-            <div className="mchart-label" title={m.grant.title}>{m.grant.title}</div>
+        {items.map(({ id, label, detail, match: m }) => (
+          <div className="mchart-row" key={id} tabIndex={0}>
+            <div className="mchart-label" title={label}>{label}</div>
             <div className="mchart-track">
               {TICKS.map((t) => <i key={t} className="mchart-grid" style={{ left: `${t}%` }} />)}
               <i className="mchart-grid threshold" style={{ left: "50%" }} />
@@ -45,10 +50,10 @@ export function MatchChart({ matches }: { matches: MatchResult[] }) {
 
               <div className="mchart-tip" role="tooltip">
                 <strong>{m.score_totale}% · {m.classe}</strong>
-                <span className="muted">{m.grant.source} · scad. {date(m.grant.deadline)}</span>
+                <span className="muted">{detail}</span>
                 <dl>
-                  {CRITERIA.map(([key, label, max]) => (
-                    <div key={key}><dt>{label}</dt><dd>{m[key]}/{max}</dd></div>
+                  {CRITERIA.map(([key, criterion, max]) => (
+                    <div key={key}><dt>{criterion}</dt><dd>{m[key]}/{max}</dd></div>
                   ))}
                 </dl>
               </div>
@@ -63,18 +68,17 @@ export function MatchChart({ matches }: { matches: MatchResult[] }) {
           <table>
             <thead>
               <tr>
-                <th>Bando</th>
+                <th>{labelHeader}</th>
                 <th>Totale</th>
-                {CRITERIA.map(([key, label, max]) => <th key={key}>{label} /{max}</th>)}
+                {CRITERIA.map(([key, criterion, max]) => <th key={key}>{criterion} /{max}</th>)}
               </tr>
             </thead>
             <tbody>
-              {matches.map((m) => (
-                <tr key={m.grant.id}>
+              {items.map(({ id, label, detail, href, match: m }) => (
+                <tr key={id}>
                   <td>
-                    {m.grant.url
-                      ? <a className="title-link" href={m.grant.url} target="_blank" rel="noreferrer">{m.grant.title} ↗</a>
-                      : m.grant.title}
+                    {href ? <Link className="title-link" href={href}>{label}</Link> : label}
+                    <div className="muted small">{detail}</div>
                   </td>
                   <td><strong>{m.score_totale}%</strong> <span className="muted small">{m.classe}</span></td>
                   {CRITERIA.map(([key]) => <td key={key}>{m[key]}</td>)}

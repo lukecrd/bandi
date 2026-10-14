@@ -46,7 +46,8 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   const regionText = grant.regions.map(norm);
   const customerRegion = norm(customer.regione);
   const score_regione =
-    regionText.some((r) => r === "italia" || r.includes(customerRegion))
+    // regione cliente vuota: "".includes è sempre vero, quindi vale solo per i bandi nazionali
+    regionText.some((r) => r === "italia" || (customerRegion !== "" && r.includes(customerRegion)))
       ? SCORE_WEIGHTS.regione
       : 0;
 
@@ -133,8 +134,12 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   };
 }
 
+export function minMatchScore() {
+  return Number(process.env.MATCH_MIN_SCORE ?? 50);
+}
+
 export function scoreAll(customer: Customer, grants: Grant[]) {
-  const minScore = Number(process.env.MATCH_MIN_SCORE ?? 50);
+  const minScore = minMatchScore();
   return grants
     .map((grant) => scoreGrant(customer, grant))
     .filter((match) => match.score_totale >= minScore)

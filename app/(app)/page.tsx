@@ -8,14 +8,38 @@ import {
   getDashboardStats,
   getRecentSyncRuns,
 } from "@/lib/data";
-import { scoreAll } from "@/lib/scoring";
+import { minMatchScore, scoreGrant } from "@/lib/scoring";
 import { sourceLabel } from "@/lib/sync-sources";
+import type { Customer, Grant } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const MAX_CLIENTS = 15;
 
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("it-IT").format(new Date(value));
+}
+
+function scoreClients(grant: Grant, customers: Customer[]) {
+  return customers
+    .map((customer) => ({ customer, match: scoreGrant(customer, grant) }))
+    .sort((a, b) =>
+      b.match.score_totale - a.match.score_totale ||
+      a.customer.ragione_sociale.localeCompare(b.customer.ragione_sociale, "it")
+    );
+}
+
+/** Bando predefinito: quello regionale/locale con più clienti compatibili (sui nazionali i clienti si distinguono poco). */
+function defaultGrant(grants: Grant[], customers: Customer[], min: number) {
+  const local = grants.filter((g) => !g.regions.includes("ITALIA"));
+  let best: Grant | null = null;
+  let bestCount = -1;
+  for (const grant of local.length ? local : grants) {
+    const count = customers.filter((c) => scoreGrant(c, grant).score_totale >= min).length;
+    if (count > bestCount) [best, bestCount] = [grant, count];
+  }
+  return best;
 }
 
 export default async function Dashboard({
@@ -24,17 +48,21 @@ export default async function Dashboard({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const clienteId = typeof params.cliente === "string" ? params.cliente : "";
-  const [stats, customers, syncs] = await Promise.all([
+  const bandoId = typeof params.bando === "string" ? params.bando : "";
+  const [stats, customers, syncs, grants] = await Promise.all([
     getDashboardStats(),
     getCustomers(),
     getRecentSyncRuns(),
+    getActiveGrants(5000),
   ]);
 
-  const selected = customers.find((c) => c.id === clienteId) ?? customers[0] ?? null;
-  const matches = selected
-    ? scoreAll(selected, await getActiveGrants(5000)).slice(0, 10)
-    : [];
+  const min = minMatchScore();
+  const selected = customers.length
+    ? grants.find((g) => g.id === bandoId) ?? defaultGrant(grants, customers, min)
+    : null;
+  const ranked = selected ? scoreClients(selected, customers) : [];
+  const interested = ranked.filter((r) => r.match.score_totale >= min);
+  const grantsBySource = Map.groupBy(grants, (g) => g.source);
 
   return (
     <>
@@ -61,33 +89,56 @@ export default async function Dashboard({
       <section className="card">
         <div className="card-title">
           <div>
-            <h2>Compatibilità bandi per cliente</h2>
+            <h2>Clienti interessati al bando</h2>
             <p className="muted small">
-              Punteggio 0–100 su regione, dimensione, ATECO, temi, investimento e tempistica:
-              indica quanto il bando è adatto al cliente, non la probabilità di ottenerlo.
+              Compatibilità 0–100 di ogni cliente con il bando scelto (regione, dimensione, ATECO, temi,
+              investimento, tempistica): indica quanto il bando è adatto, non la probabilità di ottenerlo.
             </p>
           </div>
           {selected && (
             <form method="get" className="actions">
-              <label htmlFor="cliente" className="sr-only">Cliente</label>
-              <select id="cliente" name="cliente" defaultValue={selected.id} className="search client-select">
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.ragione_sociale}</option>)}
+              <label htmlFor="bando" className="sr-only">Bando</label>
+              <select id="bando" name="bando" defaultValue={selected.id} className="search client-select">
+                {[...grantsBySource].map(([source, list]) => (
+                  <optgroup key={source} label={source}>
+                    {list.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+                  </optgroup>
+                ))}
               </select>
               <button className="btn secondary">Mostra</button>
             </form>
           )}
         </div>
+
         {selected ? (
           <>
-            <MatchChart matches={matches} />
             <p className="small">
-              <Link className="title-link" href={`/clienti/${selected.id}`}>
-                Tutti i match di {selected.ragione_sociale} →
-              </Link>
+              {selected.url
+                ? <a className="title-link" href={selected.url} target="_blank" rel="noreferrer">{selected.title} ↗</a>
+                : <strong>{selected.title}</strong>}
+              <span className="muted">
+                {" "}· {selected.source} · {selected.regions.includes("ITALIA") ? "Nazionale" : selected.regions.join(", ")}
+                {" "}· scad. {formatDate(selected.deadline)}
+              </span>
             </p>
+            <p className="result-count">
+              <strong>{interested.length}</strong> clienti su {customers.length} con compatibilità ≥ {min}%
+              {interested.length > MAX_CLIENTS && ` · mostrati i primi ${MAX_CLIENTS}`}
+            </p>
+            <MatchChart
+              labelHeader="Cliente"
+              items={interested.slice(0, MAX_CLIENTS).map(({ customer: c, match }) => ({
+                id: c.id,
+                label: c.ragione_sociale,
+                detail: [c.regione || "regione mancante", c.dimensione, c.ateco && `ATECO ${c.ateco}`]
+                  .filter(Boolean).join(" · "),
+                href: `/clienti/${c.id}`,
+                match,
+              }))}
+            />
           </>
         ) : (
-          <p className="muted">Carica almeno un cliente per vedere i match.</p>
+          <p className="muted">Servono almeno un cliente e un bando attivo per calcolare la compatibilità.</p>
         )}
       </section>
 
