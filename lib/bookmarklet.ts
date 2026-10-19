@@ -175,6 +175,8 @@ export const RUNTIME = String.raw`function (data, syn) {
     if (size) choose(fc("dimensioneImpresaCodice"), function (o) { return o.value === size; }, "Dimensione impresa");
     var settore = fc("codSettore");
     if (settore && settore.options.length === 2) choose(settore, function (o, i) { return i === 1; }, "Settore");
+    // always bonifico; the only option is shown selected but the Angular control stays empty until a change event
+    choose(fc("tipoPagamento"), function (o) { return norm(o.text) === "bonifico"; }, "Modalità di pagamento");
 
     var sigla = String(data.sede_provincia || "").toUpperCase();
     var steps = [
