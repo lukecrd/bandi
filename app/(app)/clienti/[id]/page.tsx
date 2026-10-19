@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnagraficaPanel } from "@/components/anagrafica-panel";
 import { notFound } from "next/navigation";
 import { DeleteCustomerButton } from "@/components/delete-customer";
 import { CustomerEditForm } from "@/components/customer-edit-form";
@@ -61,6 +62,13 @@ export default async function CustomerDetail({
         <div style={{ height: 14 }} />
         <CustomerEditForm customer={customer} />
       </details>
+
+      <div style={{ height: 18 }} />
+
+      <section className="card">
+        <h2>Dati per compilazione bandi</h2>
+        <AnagraficaPanel customerId={customer.id} initial={customer.anagrafica ?? {}} />
+      </section>
 
       <div style={{ height: 18 }} />
 

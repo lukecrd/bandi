@@ -12,6 +12,7 @@
     "postinstall": "echo 'Run npm run db:init && npm run seed to set up the database'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@hookform/resolvers": "^5.9.1",
     "@neondatabase/serverless": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.23",

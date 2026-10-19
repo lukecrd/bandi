@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS customers (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- dati anagrafici per la compilazione dei portali bandi (estratti da visura / documento d'identita)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS anagrafica JSONB NOT NULL DEFAULT '{}'::jsonb;
+
 CREATE TABLE IF NOT EXISTS grants (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,

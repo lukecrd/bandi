@@ -1,3 +1,12 @@
+export type Anagrafica = {
+  partita_iva?: string; codice_fiscale?: string; denominazione?: string; forma_giuridica?: string;
+  pec?: string; rea?: string; data_costituzione?: string; // ISO yyyy-mm-dd
+  sede_indirizzo?: string; sede_cap?: string; sede_comune?: string; sede_provincia?: string; // sigla 2 lettere
+  ateco?: string; capitale_sociale?: string;
+  lr_nome?: string; lr_cognome?: string; lr_codice_fiscale?: string; lr_data_nascita?: string; lr_luogo_nascita?: string;
+  lr_documento_tipo?: string; lr_documento_numero?: string; lr_documento_rilascio?: string; lr_documento_scadenza?: string; lr_documento_ente?: string;
+};
+
 export type Customer = {
   id: string;
   external_id: string;
@@ -17,13 +26,15 @@ export type Customer = {
   export: boolean;
   formazione: boolean;
   note: string | null;
+  anagrafica: Anagrafica;
   created_at: string;
   updated_at: string;
 };
 
+// anagrafica is written only via PATCH /api/customers/[id]; imports/sync keep the DB value
 export type CustomerInput = Omit<
   Customer,
-  "id" | "created_at" | "updated_at"
+  "id" | "created_at" | "updated_at" | "anagrafica"
 >;
 
 export type Grant = {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { deleteCustomer, updateCustomer } from "@/lib/data";
-import type { CustomerInput } from "@/lib/types";
+import { deleteCustomer, updateCustomer, updateCustomerAnagrafica } from "@/lib/data";
+import { AnagraficaSchema } from "@/lib/anagrafica";
+import type { Anagrafica, CustomerInput } from "@/lib/types";
 
 function nullableNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return null;
@@ -19,6 +20,24 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
+
+    let anagrafica: Anagrafica | undefined;
+    if (body.anagrafica !== undefined) {
+      const parsed = AnagraficaSchema.safeParse(body.anagrafica);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Anagrafica non valida." }, { status: 400 });
+      }
+      anagrafica = parsed.data;
+    }
+
+    // body with only `anagrafica`: update just that
+    if (anagrafica && !body.external_id && !body.ragione_sociale) {
+      const customer = await updateCustomerAnagrafica(id, anagrafica);
+      if (!customer) {
+        return NextResponse.json({ error: "Cliente non trovato." }, { status: 404 });
+      }
+      return NextResponse.json(customer);
+    }
 
     if (!body.external_id || !body.ragione_sociale || !body.regione) {
       return NextResponse.json(
@@ -47,7 +66,7 @@ export async function PATCH(
       note: body.note ? String(body.note).trim() : null,
     };
 
-    const customer = await updateCustomer(id, input);
+    const customer = await updateCustomer(id, input, anagrafica);
     if (!customer) {
       return NextResponse.json({ error: "Cliente non trovato." }, { status: 404 });
     }

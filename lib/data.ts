@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
+import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
 
 export async function getDashboardStats() {
   const sql = db();
@@ -76,7 +76,7 @@ export async function createCustomer(input: CustomerInput) {
   return rows[0] as Customer;
 }
 
-export async function updateCustomer(id: string, input: CustomerInput) {
+export async function updateCustomer(id: string, input: CustomerInput, anagrafica?: Anagrafica) {
   const sql = db();
   const rows = await sql.query(
     `UPDATE customers SET
@@ -97,6 +97,7 @@ export async function updateCustomer(id: string, input: CustomerInput) {
       export = $16,
       formazione = $17,
       note = $18,
+      anagrafica = COALESCE($19::jsonb, anagrafica),
       updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -119,7 +120,17 @@ export async function updateCustomer(id: string, input: CustomerInput) {
       input.export,
       input.formazione,
       input.note,
+      anagrafica ? JSON.stringify(anagrafica) : null,
     ]
+  );
+  return (rows[0] ?? null) as Customer | null;
+}
+
+export async function updateCustomerAnagrafica(id: string, anagrafica: Anagrafica) {
+  const sql = db();
+  const rows = await sql.query(
+    `UPDATE customers SET anagrafica = $2::jsonb, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    [id, JSON.stringify(anagrafica)]
   );
   return (rows[0] ?? null) as Customer | null;
 }
