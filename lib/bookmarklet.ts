@@ -163,6 +163,16 @@ export const RUNTIME = String.raw`function (data, syn) {
       mark(el);
       count++;
     };
+    // declarant (intermediary) contacts are fixed; that block precedes the business block (#denominazione)
+    var firstBefore = function (name) {
+      var anchor = document.getElementById("denominazione");
+      return Array.prototype.filter.call(document.querySelectorAll('[formcontrolname="' + name + '"]'), function (el) {
+        return el.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING;
+      })[0] || null;
+    };
+    put(firstBefore("emailContatto"), "segreteria@vivarelliconsulting.com", "Email di contatto dichiarante");
+    put(firstBefore("telefono"), "3484935923", "Telefono dichiarante");
+
     var addr = splitAddr(data.sede_indirizzo);
     put(fc("denominazione"), data.denominazione, "Denominazione");
     put(fc("codiceFiscale"), data.codice_fiscale, "Codice fiscale");
@@ -192,7 +202,7 @@ export const RUNTIME = String.raw`function (data, syn) {
     }, Promise.resolve(true)).then(function () {
       alert("ReStart: compilati " + count + " campi." +
         (missed.length ? "\nDa completare a mano: " + missed.join(", ") : "") +
-        "\nTelefono e dichiarazioni vanno inseriti a mano.");
+        "\nTelefono dell'impresa e dichiarazioni vanno inseriti a mano.");
     });
     return;
   }
