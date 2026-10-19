@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { DeleteCustomerButton } from "@/components/delete-customer";
 import { CustomerEditForm } from "@/components/customer-edit-form";
 import { StatusBadge } from "@/components/status-badge";
-import { getActiveGrants, getCustomer } from "@/lib/data";
+import { getActiveGrants, getCustomer, listCustomerFiles } from "@/lib/data";
+import { createAllegatiToken } from "@/lib/auth";
+import { AllegatiPanel } from "@/components/allegati-panel";
 import { scoreAll } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,8 @@ export default async function CustomerDetail({
   if (!customer) notFound();
 
   const matches = scoreAll(customer, await getActiveGrants(10000));
+  const files = await listCustomerFiles(customer.id);
+  const allegatiToken = await createAllegatiToken(customer.id);
 
   return (
     <>
@@ -67,7 +71,14 @@ export default async function CustomerDetail({
 
       <section className="card">
         <h2>Dati per compilazione bandi</h2>
-        <AnagraficaPanel customerId={customer.id} initial={customer.anagrafica ?? {}} dimensione={customer.dimensione} />
+        <AnagraficaPanel customerId={customer.id} initial={customer.anagrafica ?? {}} dimensione={customer.dimensione} allegatiToken={allegatiToken} />
+      </section>
+
+      <div style={{ height: 18 }} />
+
+      <section className="card">
+        <h2>Allegati per i bandi</h2>
+        <AllegatiPanel customerId={customer.id} files={files} />
       </section>
 
       <div style={{ height: 18 }} />

@@ -54,3 +54,19 @@ export async function verifySessionToken(token: string) {
 }
 
 export const SESSION_MAX_AGE = Math.floor(SESSION_TTL_MS / 1000);
+
+// Read-only access to one customer's attachments for the bookmarklet, which runs on the portal's
+// origin and has no session cookie. No expiry: a bookmark must keep working; rotate AUTH_SECRET to revoke.
+export async function createAllegatiToken(customerId: string) {
+  return `${customerId}.${await signature(`allegati:${customerId}`)}`;
+}
+
+export async function verifyAllegatiToken(token: string) {
+  try {
+    const [customerId, sig] = token.split(".");
+    if (!customerId || !sig) return null;
+    return safeEqual(sig, await signature(`allegati:${customerId}`)) ? customerId : null;
+  } catch {
+    return null;
+  }
+}

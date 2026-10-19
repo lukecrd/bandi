@@ -49,7 +49,7 @@ const groups: Array<[string, Array<[Key, string, string?]>]> = [
 const same = (a: Anagrafica, b: Anagrafica) =>
   groups.every(([, fields]) => fields.every(([key]) => (a[key] ?? "") === (b[key] ?? "")));
 
-export function AnagraficaPanel({ customerId, initial, dimensione }: { customerId: string; initial: Anagrafica; dimensione: string }) {
+export function AnagraficaPanel({ customerId, initial, dimensione, allegatiToken }: { customerId: string; initial: Anagrafica; dimensione: string; allegatiToken: string }) {
   const router = useRouter();
   const [form, setForm] = useState<Anagrafica>(initial);
   const [extracted, setExtracted] = useState<Set<Key>>(new Set());
@@ -61,8 +61,9 @@ export function AnagraficaPanel({ customerId, initial, dimensione }: { customerI
 
   // React 19 blocks javascript: URLs in href props, so set it on the DOM node directly.
   useEffect(() => {
-    bookmarklet.current?.setAttribute("href", buildBookmarklet({ ...initial, dimensione }));
-  }, [initial, dimensione]);
+    const allegati_url = `${window.location.origin}/api/allegati/${allegatiToken}`;
+    bookmarklet.current?.setAttribute("href", buildBookmarklet({ ...initial, dimensione, allegati_url }));
+  }, [initial, dimensione, allegatiToken]);
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];

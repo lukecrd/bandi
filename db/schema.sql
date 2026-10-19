@@ -79,3 +79,19 @@ CREATE INDEX IF NOT EXISTS grants_deadline_idx ON grants(deadline);
 CREATE INDEX IF NOT EXISTS grants_first_seen_idx ON grants(first_seen_at);
 CREATE INDEX IF NOT EXISTS grants_regions_gin_idx ON grants USING GIN(regions);
 CREATE INDEX IF NOT EXISTS grants_topics_gin_idx ON grants USING GIN(topics);
+
+-- documenti del cliente da allegare alle domande (es. step "Allegati" di ReStart)
+CREATE TABLE IF NOT EXISTS customer_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL,
+  data_documento DATE NOT NULL,
+  filename TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  da_caricare BOOLEAN NOT NULL DEFAULT TRUE,
+  content BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS customer_files_customer_idx ON customer_files(customer_id);

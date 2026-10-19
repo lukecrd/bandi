@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
+import type { CustomerFile } from "@/lib/allegati";
 
 export async function getDashboardStats() {
   const sql = db();
@@ -133,6 +134,58 @@ export async function updateCustomerAnagrafica(id: string, anagrafica: Anagrafic
     [id, JSON.stringify(anagrafica)]
   );
   return (rows[0] ?? null) as Customer | null;
+}
+
+const FILE_COLUMNS = `id, tipo, to_char(data_documento, 'YYYY-MM-DD') AS data_documento, filename, mime, size, da_caricare`;
+
+export async function listCustomerFiles(customerId: string, onlyDaCaricare = false) {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT ${FILE_COLUMNS} FROM customer_files
+     WHERE customer_id = $1 ${onlyDaCaricare ? "AND da_caricare" : ""}
+     ORDER BY tipo, data_documento, created_at`,
+    [customerId]
+  );
+  return rows as CustomerFile[];
+}
+
+export async function addCustomerFile(
+  customerId: string,
+  file: { tipo: string; data_documento: string; filename: string; mime: string; content: Buffer }
+) {
+  const sql = db();
+  // bytea goes through base64 so the HTTP driver never has to serialize binary params
+  const rows = await sql.query(
+    `INSERT INTO customer_files (customer_id, tipo, data_documento, filename, mime, size, content)
+     VALUES ($1, $2, $3, $4, $5, $6, decode($7, 'base64'))
+     RETURNING ${FILE_COLUMNS}`,
+    [customerId, file.tipo, file.data_documento, file.filename, file.mime, file.content.length, file.content.toString("base64")]
+  );
+  return rows[0] as CustomerFile;
+}
+
+export async function updateCustomerFile(customerId: string, fileId: string, daCaricare: boolean) {
+  const sql = db();
+  const rows = await sql.query(
+    `UPDATE customer_files SET da_caricare = $3 WHERE customer_id = $1 AND id = $2 RETURNING ${FILE_COLUMNS}`,
+    [customerId, fileId, daCaricare]
+  );
+  return (rows[0] ?? null) as CustomerFile | null;
+}
+
+export async function deleteCustomerFile(customerId: string, fileId: string) {
+  const sql = db();
+  await sql.query(`DELETE FROM customer_files WHERE customer_id = $1 AND id = $2`, [customerId, fileId]);
+}
+
+export async function getCustomerFileContent(customerId: string, fileId: string) {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT filename, mime, encode(content, 'base64') AS content FROM customer_files WHERE customer_id = $1 AND id = $2`,
+    [customerId, fileId]
+  );
+  const row = rows[0] as { filename: string; mime: string; content: string } | undefined;
+  return row ? { filename: row.filename, mime: row.mime, content: Buffer.from(row.content, "base64") } : null;
 }
 
 export async function deleteCustomer(id: string) {

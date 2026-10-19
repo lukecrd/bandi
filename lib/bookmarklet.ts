@@ -139,11 +139,64 @@ export const RUNTIME = String.raw`function (data, syn) {
   // (codiceFiscale, emailPec, telefono) earlier in the page, so the business's control is always the last match.
   var host = typeof location !== "undefined" ? location.hostname : "";
   if (/(^|\.)restart\.infocamere\.it$/.test(host)) {
+    // step 3 ALLEGATI: per document pick type, type the date (gg/mm/aaaa), then the file input appears and
+    // choosing a file uploads it at once; a new table row means done. Files come from the app via the signed URL.
+    if (document.querySelector('[formcontrolname="tipoFile"]')) {
+      if (!data.allegati_url) { alert("Trascina di nuovo \"Compila portale\" dalla scheda cliente."); return; }
+      var panel = function () { return document.getElementById("allegOpzPanel") || document.body; };
+      var rows = function () { return panel().querySelectorAll("tbody tr").length; };
+      var uploadOne = function (d) {
+        var sel = document.querySelector('[formcontrolname="tipoFile"]');
+        var opt = Array.prototype.filter.call(sel.options, function (o) { return norm(o.text) === norm(d.tipo); })[0];
+        if (!opt) return Promise.resolve("tipo " + d.tipo + " non previsto da questo bando");
+        return fetch(d.url).then(function (r) {
+          if (!r.ok) throw new Error("download " + r.status);
+          return r.blob();
+        }).then(function (blob) {
+          var before = rows();
+          setValue(sel, opt.value);
+          var date = document.getElementById("dataOpz");
+          setValue(date, d.data);
+          date.dispatchEvent(new Event("blur"));
+          return wait(function () { return document.getElementById("cffileInOpz"); }, 5000).then(function (input) {
+            if (!input) return "campo file non comparso (tipo o data non accettati)";
+            var dt = new DataTransfer();
+            dt.items.add(new File([blob], d.filename, { type: d.mime }));
+            input.files = dt.files;
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            return wait(function () { return rows() > before; }, 60000).then(function (added) {
+              return added ? "" : "il portale non ha confermato il caricamento";
+            });
+          });
+        }).catch(function (e) { return e.message; });
+      };
+      fetch(data.allegati_url).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function (docs) {
+        var done = 0, skipped = 0, errors = [];
+        return docs.reduce(function (p, d) {
+          return p.then(function () {
+            if (panel().textContent.indexOf(d.filename) >= 0) { skipped++; return; }
+            return uploadOne(d).then(function (err) { if (err) errors.push(d.filename + ": " + err); else done++; });
+          });
+        }, Promise.resolve()).then(function () {
+          alert("ReStart (allegati): caricati " + done + " documenti su " + docs.length + "." +
+            (skipped ? "\nGià presenti, saltati: " + skipped + "." : "") +
+            (errors.length ? "\nNon caricati:\n- " + errors.join("\n- ") : "") +
+            (docs.length ? "" : "\nNessun documento selezionato nella scheda cliente."));
+        });
+      }).catch(function (e) {
+        alert("Impossibile leggere i documenti dall'app (" + e.message + ").");
+      });
+      return;
+    }
+
     // step 1 ANAGRAFICA has the business block; step 2 DICHIARAZIONI reuses the same sede component
     // ("Indirizzo sede/localizzazione per il quale si invia la richiesta"), filled with the sede legale
     var anagrafica = !!document.getElementById("denominazione");
     if (!anagrafica && !document.getElementById("provinciaSede")) {
-      alert("Apri lo step ANAGRAFICA o DICHIARAZIONI della richiesta ReStart e riprova.");
+      alert("Apri lo step ANAGRAFICA, DICHIARAZIONI o ALLEGATI della richiesta ReStart e riprova.");
       return;
     }
     var count = 0, missed = [];
@@ -253,7 +306,7 @@ export const RUNTIME = String.raw`function (data, syn) {
   alert("Compilati " + filled.length + " campi");
 }`;
 
-// dimensione comes from the customer record (Micro/Piccola/Media/Grande), used by portal-specific mappings
-export function buildBookmarklet(data: Anagrafica & { dimensione?: string }): string {
+// dimensione comes from the customer record (Micro/Piccola/Media/Grande); allegati_url lists the files to attach
+export function buildBookmarklet(data: Anagrafica & { dimensione?: string; allegati_url?: string }): string {
   return "javascript:" + encodeURIComponent(`(${RUNTIME})(${JSON.stringify(data)},${JSON.stringify(SYNONYMS)})`);
 }
