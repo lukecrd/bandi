@@ -45,7 +45,24 @@ export const RUNTIME = String.raw`function (data, syn) {
     if (best.indexOf("sede_") === 0 && /\b(nascita|residenza)\b/.test(text)) return null;
     return best;
   }
-  if (!data) return { norm: norm, pick: pick };
+  var PROV = {};
+  ("AG:AGRIGENTO|AL:ALESSANDRIA|AN:ANCONA|AO:AOSTA|AR:AREZZO|AP:ASCOLI PICENO|AT:ASTI|AV:AVELLINO|BA:BARI|BT:BARLETTA-ANDRIA-TRANI|" +
+   "BL:BELLUNO|BN:BENEVENTO|BG:BERGAMO|BI:BIELLA|BO:BOLOGNA|BZ:BOLZANO|BS:BRESCIA|BR:BRINDISI|CA:CAGLIARI|CL:CALTANISSETTA|" +
+   "CB:CAMPOBASSO|CE:CASERTA|CT:CATANIA|CZ:CATANZARO|CH:CHIETI|CO:COMO|CS:COSENZA|CR:CREMONA|KR:CROTONE|CN:CUNEO|EN:ENNA|FM:FERMO|" +
+   "FE:FERRARA|FI:FIRENZE|FG:FOGGIA|FC:FORLI'-CESENA|FR:FROSINONE|GE:GENOVA|GO:GORIZIA|GR:GROSSETO|IM:IMPERIA|IS:ISERNIA|SP:LA SPEZIA|" +
+   "AQ:L'AQUILA|LT:LATINA|LE:LECCE|LC:LECCO|LI:LIVORNO|LO:LODI|LU:LUCCA|MC:MACERATA|MN:MANTOVA|MS:MASSA-CARRARA|MT:MATERA|ME:MESSINA|" +
+   "MI:MILANO|MO:MODENA|MB:MONZA E DELLA BRIANZA|NA:NAPOLI|NO:NOVARA|NU:NUORO|OR:ORISTANO|PD:PADOVA|PA:PALERMO|PR:PARMA|PV:PAVIA|" +
+   "PG:PERUGIA|PU:PESARO E URBINO|PE:PESCARA|PC:PIACENZA|PI:PISA|PT:PISTOIA|PN:PORDENONE|PZ:POTENZA|PO:PRATO|RG:RAGUSA|RA:RAVENNA|" +
+   "RC:REGGIO CALABRIA|RE:REGGIO EMILIA|RI:RIETI|RN:RIMINI|RM:ROMA|RO:ROVIGO|SA:SALERNO|SS:SASSARI|SV:SAVONA|SI:SIENA|SR:SIRACUSA|" +
+   "SO:SONDRIO|SU:SUD SARDEGNA|TA:TARANTO|TE:TERAMO|TR:TERNI|TO:TORINO|TP:TRAPANI|TN:TRENTO|TV:TREVISO|TS:TRIESTE|UD:UDINE|VA:VARESE|" +
+   "VE:VENEZIA|VB:VERBANO-CUSIO-OSSOLA|VC:VERCELLI|VR:VERONA|VV:VIBO VALENTIA|VI:VICENZA|VT:VITERBO").split("|")
+    .forEach(function (p) { PROV[p.slice(0, 2)] = p.slice(3); });
+  // "VIA DEL CORSO 12/A" -> ["VIA DEL CORSO", "12/A"]
+  function splitAddr(s) {
+    var m = /^(.*?)[\s,]+(?:n\.?\s*)?(\d+\s*[a-z]?(?:\/\s*\w+)?)$/i.exec(String(s || "").trim());
+    return m ? [m[1], m[2].replace(/\s+/g, "")] : [String(s || "").trim(), ""];
+  }
+  if (!data) return { norm: norm, pick: pick, splitAddr: splitAddr, PROV: PROV };
 
   var dateFields = ["data_costituzione", "lr_data_nascita", "lr_documento_rilascio", "lr_documento_scadenza"];
   function parts(v) {
@@ -76,6 +93,106 @@ export const RUNTIME = String.raw`function (data, syn) {
     if (desc && desc.set) desc.set.call(el, v); else el.value = v;
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function mark(el) {
+    el.style.outline = "2px solid #12b76a";
+    setTimeout(function () { el.style.outline = ""; }, 4000);
+  }
+  function wait(test, ms) {
+    return new Promise(function (resolve) {
+      var start = Date.now();
+      (function loop() {
+        var r = test();
+        if (r || Date.now() - start > ms) resolve(r); else setTimeout(loop, 150);
+      })();
+    });
+  }
+  // ngb-typeahead: type, wait for the suggestion list, click the matching entry (the form only accepts list picks)
+  function typeahead(el, v) {
+    if (!el || !v) return Promise.resolve(false);
+    if (el.value) return Promise.resolve("filled");
+    return wait(function () { return !el.disabled; }, 8000).then(function (enabled) {
+      if (!enabled) return null;
+      el.focus();
+      setValue(el, v);
+      return wait(function () {
+        var w = document.getElementById(el.getAttribute("aria-owns") || "") || document.querySelector("ngb-typeahead-window");
+        return w && w.querySelector("button") ? w : null;
+      }, 5000);
+    }).then(function (w) {
+      if (!w) return false;
+      var want = norm(v), btns = Array.prototype.slice.call(w.querySelectorAll("button"));
+      var b = btns.filter(function (x) { return norm(x.textContent) === want; })[0] ||
+        btns.filter(function (x) { return norm(x.textContent).indexOf(want) === 0; })[0] ||
+        (btns.length === 1 ? btns[0] : null);
+      if (!b) return false;
+      b.click();
+      mark(el);
+      return true;
+    });
+  }
+
+  // ReStart (InfoCamere): Angular form, mapped by formcontrolname. The intermediary's block uses the same names
+  // (codiceFiscale, emailPec, telefono) earlier in the page, so the business's control is always the last match.
+  var host = typeof location !== "undefined" ? location.hostname : "";
+  if (/(^|\.)restart\.infocamere\.it$/.test(host)) {
+    if (!document.getElementById("denominazione")) {
+      alert("Apri lo step ANAGRAFICA della richiesta ReStart e riprova.");
+      return;
+    }
+    var count = 0, missed = [];
+    var fc = function (name) {
+      var els = document.querySelectorAll('[formcontrolname="' + name + '"]');
+      return els[els.length - 1] || null;
+    };
+    var put = function (el, v, label) {
+      if (!v) return;
+      if (!el || el.disabled) { missed.push(label); return; }
+      if (el.value) return;
+      setValue(el, v);
+      mark(el);
+      count++;
+    };
+    var choose = function (el, test, label) {
+      // a disabled placeholder makes the browser preselect option 1, so trust Angular's pristine flag instead
+      if (!el || (el.selectedIndex > 0 && !el.classList.contains("ng-pristine"))) return;
+      var opt = Array.prototype.slice.call(el.options).filter(test)[0];
+      if (!opt) { missed.push(label); return; }
+      setValue(el, opt.value);
+      mark(el);
+      count++;
+    };
+    var addr = splitAddr(data.sede_indirizzo);
+    put(fc("denominazione"), data.denominazione, "Denominazione");
+    put(fc("codiceFiscale"), data.codice_fiscale, "Codice fiscale");
+    put(fc("partitaIVA"), data.partita_iva, "Partita IVA");
+    put(fc("emailPec"), data.pec, "PEC");
+    put(fc("confermaEmailPec"), data.pec, "Conferma PEC");
+    put(fc("indirizzoSede"), addr[0], "Indirizzo");
+    put(fc("numeroCivicoSede"), addr[1], "N. civico");
+    var size = { micro: "1", piccola: "2", media: "3", grande: "4" }[norm(data.dimensione).split(" ")[0]];
+    if (size) choose(fc("dimensioneImpresaCodice"), function (o) { return o.value === size; }, "Dimensione impresa");
+    var settore = fc("codSettore");
+    if (settore && settore.options.length === 2) choose(settore, function (o, i) { return i === 1; }, "Settore");
+
+    var sigla = String(data.sede_provincia || "").toUpperCase();
+    var steps = [
+      [document.getElementById("provinciaSede"), PROV[sigla] || sigla, "Provincia"],
+      [document.getElementById("comuneSedeASD"), data.sede_comune, "Comune"],
+      [document.getElementById("capSede"), data.sede_cap, "CAP"],
+    ];
+    steps.reduce(function (p, s) {
+      return p.then(function (ok) {
+        if (!ok || !s[1]) { if (s[1]) missed.push(s[2]); return false; }
+        return typeahead(s[0], s[1]).then(function (done) { if (done === true) count++; else if (!done) missed.push(s[2]); return done; });
+      });
+    }, Promise.resolve(true)).then(function () {
+      alert("ReStart: compilati " + count + " campi." +
+        (missed.length ? "\nDa completare a mano: " + missed.join(", ") : "") +
+        "\nTelefono e dichiarazioni vanno inseriti a mano.");
+    });
+    return;
   }
 
   var docs = [document];
@@ -109,6 +226,7 @@ export const RUNTIME = String.raw`function (data, syn) {
   alert("Compilati " + filled.length + " campi");
 }`;
 
-export function buildBookmarklet(data: Anagrafica): string {
+// dimensione comes from the customer record (Micro/Piccola/Media/Grande), used by portal-specific mappings
+export function buildBookmarklet(data: Anagrafica & { dimensione?: string }): string {
   return "javascript:" + encodeURIComponent(`(${RUNTIME})(${JSON.stringify(data)},${JSON.stringify(SYNONYMS)})`);
 }

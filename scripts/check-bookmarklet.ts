@@ -2,8 +2,14 @@
 import assert from "node:assert/strict";
 import { buildBookmarklet, RUNTIME, SYNONYMS } from "../lib/bookmarklet";
 
-const { norm, pick: pickNorm } = new Function(`return (${RUNTIME})`)()(null, SYNONYMS);
+const { norm, pick: pickNorm, splitAddr, PROV } = new Function(`return (${RUNTIME})`)()(null, SYNONYMS);
 const pick = (label: string) => pickNorm(norm(label));
+
+assert.deepEqual(splitAddr("VIA DEL CORSO 12"), ["VIA DEL CORSO", "12"]);
+assert.deepEqual(splitAddr("Piazza Duomo, n. 3/B"), ["Piazza Duomo", "3/B"]);
+assert.deepEqual(splitAddr("LOCALITA' IL PIANO"), ["LOCALITA' IL PIANO", ""]);
+assert.equal(PROV.SI, "SIENA");
+assert.equal(Object.keys(PROV).length, 107);
 
 assert.equal(pick("Partita IVA *"), "partita_iva");
 assert.equal(pick("P.IVA"), "partita_iva");

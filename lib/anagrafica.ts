@@ -1,5 +1,4 @@
-// zod/v4 because @anthropic-ai/sdk's zodOutputFormat requires it
-import { z } from "zod/v4";
+import { z } from "zod";
 import type { Anagrafica } from "@/lib/types";
 
 const s = () => z.string().optional();
