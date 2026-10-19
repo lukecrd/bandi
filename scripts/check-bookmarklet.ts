@@ -8,6 +8,7 @@ const pick = (label: string) => pickNorm(norm(label));
 assert.deepEqual(splitAddr("VIA DEL CORSO 12"), ["VIA DEL CORSO", "12"]);
 assert.deepEqual(splitAddr("Piazza Duomo, n. 3/B"), ["Piazza Duomo", "3/B"]);
 assert.deepEqual(splitAddr("LOCALITA' IL PIANO"), ["LOCALITA' IL PIANO", ""]);
+assert.deepEqual(splitAddr("VIA DEL PORTO 16/17/22"), ["VIA DEL PORTO", "16/17/22"]);
 assert.equal(PROV.SI, "SIENA");
 assert.equal(Object.keys(PROV).length, 107);
 

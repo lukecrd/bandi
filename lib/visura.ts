@@ -54,13 +54,15 @@ export function splitNome(text: string, cf: string) {
 
 function legaleRappresentante(text: string): Partial<Anagrafica> {
   const role = text.search(/rappresentante dell'impresa|amministratore unico|titolare firmatario|presidente del consiglio/i);
-  const scope = role >= 0 ? text.slice(role) : text;
-  const cf = scope.match(CF_PERSONA)?.[0];
+  const from = Math.max(role, 0);
+  const cf = text.slice(from).match(CF_PERSONA)?.[0];
   if (!cf) return {};
-  const at = scope.indexOf(cf);
-  const block = scope.slice(Math.max(0, at - 400), at + 400);
+  // the name and "Nato a" sit before the role label, so cut the block from the whole text
+  const at = text.indexOf(cf, from);
+  const block = text.slice(Math.max(0, at - 400), at + 400);
   const nascita = block.match(/([A-ZÀ-Ü' ]{3,}?)\s+nat[oa] a\s+([A-ZÀ-Ü' ]+?)\s*\(([A-Z]{2})\)\s*il\s*(\d{2}\/\d{2}\/\d{4})/i);
-  const nome = nascita ? splitNome(nascita[1], cf) : undefined;
+  // the visura prints the role after the name: "BARLETTANI MASSIMO Rappresentante dell'impresa"
+  const nome = nascita ? splitNome(nascita[1].replace(/\s*rappresentante dell'impresa.*$/i, ""), cf) : undefined;
   return {
     lr_codice_fiscale: cf,
     lr_cognome: nome?.cognome,
@@ -72,8 +74,9 @@ function legaleRappresentante(text: string): Partial<Anagrafica> {
 
 export function parseVisura(raw: string): Partial<Anagrafica> {
   const text = raw.replace(/\r/g, "");
-  const sede = after(text, /Indirizzo Sede legale/);
-  const sedeParts = sede?.match(/^(.+?)\s*\(([A-Z]{2})\)\s*(.*)$/);
+  // the address wraps over several lines: "MONTE ARGENTARIO (GR)\nVIA DEL MOLO 16 CAP\n58019 FRAZIONE: ..."
+  const sede = clean(text.match(/Indirizzo Sede legale[ \t:]*([\s\S]*?)(?=\n\s*(?:Domicilio digitale|Indirizzo PEC|Numero REA|Partita IVA|Codice fiscale)|$)/i)?.[1]);
+  const sedeParts = sede?.match(/^(.+?)\s*\(([A-Z]{2})\)\s*(.*?)(?:\s*\bfrazione\b.*)?$/i);
   const data = text.match(/Data (?:atto di )?costituzione[\s:]*(\d{2}\/\d{2}\/\d{4})/i)?.[1];
 
   const result: Partial<Anagrafica> = {
@@ -83,14 +86,14 @@ export function parseVisura(raw: string): Partial<Anagrafica> {
       text.match(/Registro Imprese[\s:]*(\d{11}|[A-Z0-9]{16})\b/i)?.[1] ??
       text.match(/Codice fiscale[\s:]*(\d{11})\b/i)?.[1],
     forma_giuridica: after(text, /Forma giuridica/),
-    pec: text.match(/Indirizzo PEC[\s:]*([\w.+-]+@[\w.-]+\.[a-z]{2,})/i)?.[1]?.toLowerCase(),
+    pec: text.match(/(?:Indirizzo PEC|Domicilio digitale\/PEC)[\s:]*([\w.+-]+@[\w.-]+\.[a-z]{2,})/i)?.[1]?.toLowerCase(),
     rea: clean(text.match(/Numero REA[\s:]*([A-Z]{2}\s*-?\s*\d+)/i)?.[1]),
     data_costituzione: data ? toIso(data) : undefined,
     ateco: text.match(/(?:Codice ATECO|ATECO[^\n:]*:)[\s:]*(\d{2}(?:\.\d{1,2}){0,2})/i)?.[1],
     capitale_sociale: text.match(/Capitale sociale[^\d\n]*([\d.]+,\d{2})/i)?.[1],
     sede_comune: clean(sedeParts?.[1]),
     sede_provincia: sedeParts?.[2],
-    sede_indirizzo: clean(sedeParts?.[3]?.replace(/\bCAP\s*\d{5}/i, "")),
+    sede_indirizzo: clean(sedeParts?.[3]?.replace(/\bCAP\b\s*(\d{5})?/i, "")),
     sede_cap: sede?.match(/\b(\d{5})\b/)?.[1],
     ...legaleRappresentante(text),
   };

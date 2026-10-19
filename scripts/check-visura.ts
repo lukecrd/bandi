@@ -50,4 +50,24 @@ assert.deepEqual(parseVisura(visura), {
 });
 assert.deepEqual(parseVisura("testo senza etichette"), {});
 
+// real layout (Registro Imprese 2026): address wrapped over lines, "Domicilio digitale/PEC", role after the name
+const reale = parseVisura(`DATI ANAGRAFICI
+Indirizzo Sede legale MONTE ARGENTARIO (GR)
+VIA DEL PORTO 16/17/22 CAP
+58019 FRAZIONE: PORTO
+SANTO STEFANO
+Domicilio digitale/PEC beta@legalmail.it
+Numero REA GR - 12345
+Socio Amministratore
+DE LUCA MARIO Rappresentante dell'impresa
+Nato a MILANO (MI) il 15/03/1980
+Codice fiscale: DLCMRA80C15F205X`);
+assert.equal(reale.sede_comune, "MONTE ARGENTARIO");
+assert.equal(reale.sede_provincia, "GR");
+assert.equal(reale.sede_indirizzo, "VIA DEL PORTO 16/17/22");
+assert.equal(reale.sede_cap, "58019");
+assert.equal(reale.pec, "beta@legalmail.it");
+assert.equal(reale.lr_cognome, "DE LUCA");
+assert.equal(reale.lr_nome, "MARIO");
+
 console.log("visura OK");

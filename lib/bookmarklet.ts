@@ -59,7 +59,7 @@ export const RUNTIME = String.raw`function (data, syn) {
     .forEach(function (p) { PROV[p.slice(0, 2)] = p.slice(3); });
   // "VIA DEL CORSO 12/A" -> ["VIA DEL CORSO", "12/A"]
   function splitAddr(s) {
-    var m = /^(.*?)[\s,]+(?:n\.?\s*)?(\d+\s*[a-z]?(?:\/\s*\w+)?)$/i.exec(String(s || "").trim());
+    var m = /^(.*?)[\s,]+(?:n\.?\s*)?(\d+\s*[a-z]?(?:\/\s*\w+)*)$/i.exec(String(s || "").trim());
     return m ? [m[1], m[2].replace(/\s+/g, "")] : [String(s || "").trim(), ""];
   }
   if (!data) return { norm: norm, pick: pick, splitAddr: splitAddr, PROV: PROV };
