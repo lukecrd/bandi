@@ -67,7 +67,7 @@ export default async function CustomerDetail({
 
       <section className="card">
         <h2>Dati per compilazione bandi</h2>
-        <AnagraficaPanel customerId={customer.id} initial={customer.anagrafica ?? {}} />
+        <AnagraficaPanel customerId={customer.id} initial={customer.anagrafica ?? {}} dimensione={customer.dimensione} />
       </section>
 
       <div style={{ height: 18 }} />

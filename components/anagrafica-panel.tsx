@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Anagrafica } from "@/lib/types";
 import { buildBookmarklet } from "@/lib/bookmarklet";
+import { dataNascitaDaCf } from "@/lib/visura";
 
 type Key = keyof Anagrafica;
 
@@ -41,15 +42,10 @@ const groups: Array<[string, Array<[Key, string, string?]>]> = [
   ]],
 ];
 
-const uploads: Array<["visura" | "documento_identita", string]> = [
-  ["visura", "Carica visura camerale"],
-  ["documento_identita", "Carica documento d'identità"],
-];
-
 const same = (a: Anagrafica, b: Anagrafica) =>
   groups.every(([, fields]) => fields.every(([key]) => (a[key] ?? "") === (b[key] ?? "")));
 
-export function AnagraficaPanel({ customerId, initial }: { customerId: string; initial: Anagrafica }) {
+export function AnagraficaPanel({ customerId, initial, dimensione }: { customerId: string; initial: Anagrafica; dimensione: string }) {
   const router = useRouter();
   const [form, setForm] = useState<Anagrafica>(initial);
   const [extracted, setExtracted] = useState<Set<Key>>(new Set());
@@ -61,10 +57,10 @@ export function AnagraficaPanel({ customerId, initial }: { customerId: string; i
 
   // React 19 blocks javascript: URLs in href props, so set it on the DOM node directly.
   useEffect(() => {
-    bookmarklet.current?.setAttribute("href", buildBookmarklet(initial));
-  }, [initial]);
+    bookmarklet.current?.setAttribute("href", buildBookmarklet({ ...initial, dimensione }));
+  }, [initial, dimensione]);
 
-  async function upload(tipo: string, event: ChangeEvent<HTMLInputElement>) {
+  async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
@@ -73,7 +69,6 @@ export function AnagraficaPanel({ customerId, initial }: { customerId: string; i
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("tipo", tipo);
       const response = await fetch(`/api/customers/${customerId}/documents`, { method: "POST", body });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Lettura documento fallita.");
@@ -114,18 +109,10 @@ export function AnagraficaPanel({ customerId, initial }: { customerId: string; i
   return (
     <div className="grid">
       <div className="actions">
-        {uploads.map(([tipo, label]) => (
-          <label key={tipo} className="btn secondary focus-within:outline-2 focus-within:outline-offset-2" style={{ cursor: reading ? "wait" : "pointer", opacity: reading ? 0.55 : 1 }}>
-            {label}
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              className="sr-only"
-              disabled={reading}
-              onChange={(event) => upload(tipo, event)}
-            />
-          </label>
-        ))}
+        <label className="btn secondary focus-within:outline-2 focus-within:outline-offset-2" style={{ cursor: reading ? "wait" : "pointer", opacity: reading ? 0.55 : 1 }}>
+          Carica visura camerale (PDF)
+          <input type="file" accept=".pdf,application/pdf" className="sr-only" disabled={reading} onChange={upload} />
+        </label>
         {reading && <span className="muted" role="status">Lettura documento in corso…</span>}
       </div>
 
@@ -145,6 +132,10 @@ export function AnagraficaPanel({ customerId, initial }: { customerId: string; i
                   type={type ?? "text"}
                   value={form[key] ?? ""}
                   onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  onBlur={key === "lr_codice_fiscale" && !form.lr_data_nascita ? () => {
+                    const data = dataNascitaDaCf((form.lr_codice_fiscale ?? "").trim().toUpperCase());
+                    if (data) setForm({ ...form, lr_data_nascita: data });
+                  } : undefined}
                   style={isNew ? { borderColor: "#12b76a", background: "var(--green-soft)" } : undefined}
                 />
               </div>
