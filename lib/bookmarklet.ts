@@ -139,8 +139,11 @@ export const RUNTIME = String.raw`function (data, syn) {
   // (codiceFiscale, emailPec, telefono) earlier in the page, so the business's control is always the last match.
   var host = typeof location !== "undefined" ? location.hostname : "";
   if (/(^|\.)restart\.infocamere\.it$/.test(host)) {
-    if (!document.getElementById("denominazione")) {
-      alert("Apri lo step ANAGRAFICA della richiesta ReStart e riprova.");
+    // step 1 ANAGRAFICA has the business block; step 2 DICHIARAZIONI reuses the same sede component
+    // ("Indirizzo sede/localizzazione per il quale si invia la richiesta"), filled with the sede legale
+    var anagrafica = !!document.getElementById("denominazione");
+    if (!anagrafica && !document.getElementById("provinciaSede")) {
+      alert("Apri lo step ANAGRAFICA o DICHIARAZIONI della richiesta ReStart e riprova.");
       return;
     }
     var count = 0, missed = [];
@@ -172,23 +175,25 @@ export const RUNTIME = String.raw`function (data, syn) {
         return el.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING;
       })[0] || null;
     };
-    put(firstBefore("emailContatto"), "segreteria@vivarelliconsulting.com", "Email di contatto dichiarante");
-    put(firstBefore("telefono"), "3484935923", "Telefono dichiarante");
+    if (anagrafica) {
+      put(firstBefore("emailContatto"), "segreteria@vivarelliconsulting.com", "Email di contatto dichiarante");
+      put(firstBefore("telefono"), "3484935923", "Telefono dichiarante");
+      put(fc("denominazione"), data.denominazione, "Denominazione");
+      put(fc("codiceFiscale"), data.codice_fiscale, "Codice fiscale");
+      put(fc("partitaIVA"), data.partita_iva, "Partita IVA");
+      put(fc("emailPec"), data.pec, "PEC");
+      put(fc("confermaEmailPec"), data.pec, "Conferma PEC");
+      var size = { micro: "1", piccola: "2", media: "3", grande: "4" }[norm(data.dimensione).split(" ")[0]];
+      if (size) choose(fc("dimensioneImpresaCodice"), function (o) { return o.value === size; }, "Dimensione impresa");
+      var settore = fc("codSettore");
+      if (settore && settore.options.length === 2) choose(settore, function (o, i) { return i === 1; }, "Settore");
+      // always bonifico; the only option is shown selected but the Angular control stays empty until a change event
+      choose(fc("tipoPagamento"), function (o) { return norm(o.text) === "bonifico"; }, "Modalità di pagamento");
+    }
 
     var addr = splitAddr(data.sede_indirizzo);
-    put(fc("denominazione"), data.denominazione, "Denominazione");
-    put(fc("codiceFiscale"), data.codice_fiscale, "Codice fiscale");
-    put(fc("partitaIVA"), data.partita_iva, "Partita IVA");
-    put(fc("emailPec"), data.pec, "PEC");
-    put(fc("confermaEmailPec"), data.pec, "Conferma PEC");
     put(fc("indirizzoSede"), addr[0], "Indirizzo");
     put(fc("numeroCivicoSede"), addr[1], "N. civico");
-    var size = { micro: "1", piccola: "2", media: "3", grande: "4" }[norm(data.dimensione).split(" ")[0]];
-    if (size) choose(fc("dimensioneImpresaCodice"), function (o) { return o.value === size; }, "Dimensione impresa");
-    var settore = fc("codSettore");
-    if (settore && settore.options.length === 2) choose(settore, function (o, i) { return i === 1; }, "Settore");
-    // always bonifico; the only option is shown selected but the Angular control stays empty until a change event
-    choose(fc("tipoPagamento"), function (o) { return norm(o.text) === "bonifico"; }, "Modalità di pagamento");
 
     var sigla = String(data.sede_provincia || "").toUpperCase();
     var steps = [
@@ -203,16 +208,16 @@ export const RUNTIME = String.raw`function (data, syn) {
       });
     }, Promise.resolve(true)).then(function () {
       // the IBAN block (formGroupName "cc") is rendered only after "Bonifico" is chosen
-      if (!data.iban) return;
+      if (!anagrafica || !data.iban) return;
       return wait(function () { return fc("codiceIban"); }, 3000).then(function () {
         put(fc("denominazioneIntestatario"), String(data.iban_intestatario || "").toUpperCase(), "Intestatario IBAN");
         put(fc("codiceIban"), data.iban, "IBAN");
         put(fc("confermaCodiceIban"), data.iban, "Conferma IBAN");
       });
     }).then(function () {
-      alert("ReStart: compilati " + count + " campi." +
+      alert("ReStart (" + (anagrafica ? "anagrafica" : "dichiarazioni") + "): compilati " + count + " campi." +
         (missed.length ? "\nDa completare a mano: " + missed.join(", ") : "") +
-        "\nTelefono dell'impresa e dichiarazioni vanno inseriti a mano.");
+        (anagrafica ? "\nTelefono dell'impresa va inserito a mano." : "\nIndirizzo = sede legale: correggilo se la richiesta riguarda un'unità locale."));
     });
     return;
   }
