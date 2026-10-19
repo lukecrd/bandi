@@ -40,6 +40,10 @@ const groups: Array<[string, Array<[Key, string, string?]>]> = [
     ["lr_documento_scadenza", "Data scadenza"],
     ["lr_documento_ente", "Rilasciato da"],
   ]],
+  ["Conto corrente", [
+    ["iban", "IBAN"],
+    ["iban_intestatario", "Intestatario"],
+  ]],
 ];
 
 const same = (a: Anagrafica, b: Anagrafica) =>
@@ -88,10 +92,13 @@ export function AnagraficaPanel({ customerId, initial, dimensione }: { customerI
   async function save() {
     setBusy(true);
     setMessage("");
+    // same normalization as the API, so the saved data and the form stay equal
+    const anagrafica = form.iban ? { ...form, iban: form.iban.replace(/\s+/g, "").toUpperCase() } : form;
+    setForm(anagrafica);
     const response = await fetch(`/api/customers/${customerId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anagrafica: form }),
+      body: JSON.stringify({ anagrafica }),
     });
     const result = await response.json().catch(() => ({}));
     setBusy(false);

@@ -25,6 +25,8 @@ export const SYNONYMS: Record<keyof Anagrafica, string[]> = {
   lr_documento_rilascio: ["data rilascio", "data di rilascio", "rilasciato il"],
   lr_documento_scadenza: ["data scadenza", "data di scadenza", "scadenza documento"],
   lr_documento_ente: ["rilasciato da", "ente rilascio", "autorita di rilascio", "ente di rilascio"],
+  iban: ["iban", "codice iban"],
+  iban_intestatario: ["intestatario", "intestatario iban", "intestatario conto", "intestatario del conto"],
 };
 
 // Plain ES5 source (not Function#toString: bundlers inject helpers that don't exist on the portal page).
@@ -200,6 +202,14 @@ export const RUNTIME = String.raw`function (data, syn) {
         return typeahead(s[0], s[1]).then(function (done) { if (done === true) count++; else if (!done) missed.push(s[2]); return done; });
       });
     }, Promise.resolve(true)).then(function () {
+      // the IBAN block (formGroupName "cc") is rendered only after "Bonifico" is chosen
+      if (!data.iban) return;
+      return wait(function () { return fc("codiceIban"); }, 3000).then(function () {
+        put(fc("denominazioneIntestatario"), String(data.iban_intestatario || "").toUpperCase(), "Intestatario IBAN");
+        put(fc("codiceIban"), data.iban, "IBAN");
+        put(fc("confermaCodiceIban"), data.iban, "Conferma IBAN");
+      });
+    }).then(function () {
       alert("ReStart: compilati " + count + " campi." +
         (missed.length ? "\nDa completare a mano: " + missed.join(", ") : "") +
         "\nTelefono dell'impresa e dichiarazioni vanno inseriti a mano.");

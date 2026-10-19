@@ -5,6 +5,7 @@ export type Anagrafica = {
   ateco?: string; capitale_sociale?: string;
   lr_nome?: string; lr_cognome?: string; lr_codice_fiscale?: string; lr_data_nascita?: string; lr_luogo_nascita?: string;
   lr_documento_tipo?: string; lr_documento_numero?: string; lr_documento_rilascio?: string; lr_documento_scadenza?: string; lr_documento_ente?: string;
+  iban?: string; iban_intestatario?: string;
 };
 
 export type Customer = {

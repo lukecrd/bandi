@@ -11,4 +11,6 @@ export const AnagraficaSchema = z.object({
   ateco: s(), capitale_sociale: s(),
   lr_nome: s(), lr_cognome: s(), lr_codice_fiscale: s(), lr_data_nascita: s(), lr_luogo_nascita: s(),
   lr_documento_tipo: s(), lr_documento_numero: s(), lr_documento_rilascio: s(), lr_documento_scadenza: s(), lr_documento_ente: s(),
+  // portals reject spaces in the IBAN
+  iban: z.string().transform((v) => v.replace(/\s+/g, "").toUpperCase()).optional(), iban_intestatario: s(),
 }) satisfies z.ZodType<Anagrafica>;
