@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Kpi } from "@/components/kpi";
-import { MatchChart } from "@/components/match-chart";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getActiveGrants,
@@ -8,38 +7,111 @@ import {
   getDashboardStats,
   getRecentSyncRuns,
 } from "@/lib/data";
-import { minMatchScore, scoreGrant } from "@/lib/scoring";
+import { minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
 import { sourceLabel } from "@/lib/sync-sources";
-import type { Customer, Grant } from "@/lib/types";
+import type { Customer, Grant, MatchResult } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const MAX_CLIENTS = 15;
+const MAX_GRANTS = 10;
+const MAX_NAMES = 24;
+const DAY = 86_400_000;
+
+const CRITERIA = [
+  ["score_regione", "Regione", SCORE_WEIGHTS.regione],
+  ["score_dimensione", "Dimensione", SCORE_WEIGHTS.dimensione],
+  ["score_ateco", "ATECO", SCORE_WEIGHTS.ateco],
+  ["score_temi", "Temi", SCORE_WEIGHTS.temi],
+  ["score_investimento", "Investimento", SCORE_WEIGHTS.investimento],
+  ["score_tempistica", "Tempistica", SCORE_WEIGHTS.tempistica],
+] as const;
+
+type Scored = { customer: Customer; match: MatchResult };
 
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("it-IT").format(new Date(value));
 }
 
-function scoreClients(grant: Grant, customers: Customer[]) {
-  return customers
-    .map((customer) => ({ customer, match: scoreGrant(customer, grant) }))
+function shortDate(value: string) {
+  return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+}
+
+// Giorno di calendario italiano: le date del DB arrivano come mezzanotte locale o UTC a seconda del server.
+const romeDay = (value: string | Date) =>
+  Date.parse(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date(value)));
+
+function daysLeft(deadline: string | null) {
+  if (!deadline) return null;
+  return Math.round((romeDay(deadline) - romeDay(new Date())) / DAY);
+}
+
+/** Timbro della scadenza: rosso entro 7 giorni, ambra entro 30. */
+function DeadlineStamp({ grant }: { grant: Grant }) {
+  const days = daysLeft(grant.deadline);
+  if (grant.status === "In arrivo" && grant.opening_date) {
+    return <span className="badge forthcoming stamp">apre {shortDate(grant.opening_date)}</span>;
+  }
+  if (days === null) return <span className="badge stamp">a sportello</span>;
+  const text = days === 0 ? "scade oggi" : days === 1 ? "domani" : days <= 30 ? `${days} gg` : shortDate(grant.deadline!);
+  const tone = days <= 7 ? "low" : days <= 30 ? "medium" : "";
+  return (
+    <span className={`badge stamp ${tone}`} title={`Scadenza ${formatDate(grant.deadline)}`}>
+      {text}
+    </span>
+  );
+}
+
+function urgency(grant: Grant) {
+  const days = daysLeft(grant.deadline);
+  return days === null ? 2 : days <= 7 ? 0 : days <= 30 ? 1 : 2;
+}
+
+/** Bandi con almeno un cliente compatibile: prima i più urgenti, poi quelli con più clienti. */
+function workList(grants: Grant[], customers: Customer[], min: number) {
+  return grants
+    .map((grant) => {
+      const matches = customers.map((c) => scoreGrant(c, grant)).filter((m) => m.score_totale >= min);
+      return { grant, count: matches.length, high: matches.filter((m) => m.classe === "ALTA").length };
+    })
+    .filter((row) => row.count > 0)
     .sort((a, b) =>
-      b.match.score_totale - a.match.score_totale ||
-      a.customer.ragione_sociale.localeCompare(b.customer.ragione_sociale, "it")
+      urgency(a.grant) - urgency(b.grant) ||
+      b.count - a.count ||
+      (daysLeft(a.grant.deadline) ?? Infinity) - (daysLeft(b.grant.deadline) ?? Infinity)
     );
 }
 
-/** Bando predefinito: quello regionale/locale con più clienti compatibili (sui nazionali i clienti si distinguono poco). */
-function defaultGrant(grants: Grant[], customers: Customer[], min: number) {
-  const local = grants.filter((g) => !g.regions.includes("ITALIA"));
-  let best: Grant | null = null;
-  let bestCount = -1;
-  for (const grant of local.length ? local : grants) {
-    const count = customers.filter((c) => scoreGrant(c, grant).score_totale >= min).length;
-    if (count > bestCount) [best, bestCount] = [grant, count];
-  }
-  return best;
+/** Clienti con gli stessi punti su ogni criterio sono indistinguibili: li mostriamo come un unico profilo. */
+function profiles(scored: Scored[]) {
+  const groups = Map.groupBy(scored, ({ match }) => CRITERIA.map(([key]) => match[key]).join("|"));
+  return [...groups.values()]
+    .map((members) => ({
+      match: members[0].match,
+      members: members.map((s) => s.customer).sort((a, b) => a.ragione_sociale.localeCompare(b.ragione_sociale, "it")),
+    }))
+    .sort((a, b) =>
+      b.match.score_totale - a.match.score_totale ||
+      b.match.score_temi - a.match.score_temi ||
+      b.members.length - a.members.length
+    );
+}
+
+function ClientLinks({ members }: { members: Customer[] }) {
+  const link = (c: Customer) => (
+    <li key={c.id}><Link className="title-link" href={`/clienti/${c.id}`}>{c.ragione_sociale}</Link></li>
+  );
+  return (
+    <>
+      <ul className="name-list">{members.slice(0, MAX_NAMES).map(link)}</ul>
+      {members.length > MAX_NAMES && (
+        <details className="more-names">
+          <summary>Altri {members.length - MAX_NAMES} clienti</summary>
+          <ul className="name-list">{members.slice(MAX_NAMES).map(link)}</ul>
+        </details>
+      )}
+    </>
+  );
 }
 
 export default async function Dashboard({
@@ -57,19 +129,30 @@ export default async function Dashboard({
   ]);
 
   const min = minMatchScore();
-  const selected = customers.length
-    ? grants.find((g) => g.id === bandoId) ?? defaultGrant(grants, customers, min)
-    : null;
-  const ranked = selected ? scoreClients(selected, customers) : [];
-  const interested = ranked.filter((r) => r.match.score_totale >= min);
-  const grantsBySource = Map.groupBy(grants, (g) => g.source);
+  // Un bando compatibile con tutti i clienti non aiuta a scegliere chi chiamare: resta fuori dall'elenco.
+  const all = workList(grants, customers, min);
+  const work = all.filter((w) => w.count < customers.length);
+  const generic = all.length - work.length;
+  const selected = grants.find((g) => g.id === bandoId) ?? work[0]?.grant ?? null;
+  const interested = selected
+    ? customers
+        .map((customer) => ({ customer, match: scoreGrant(customer, selected) }))
+        .filter((s) => s.match.score_totale >= min)
+    : [];
+  const groups = profiles(interested);
+  const shown = work.slice(0, MAX_GRANTS);
+  // Un bando aperto via ?bando= può non essere tra i primi: lo aggiungiamo in coda.
+  if (selected && !shown.some((w) => w.grant.id === selected.id)) {
+    const row = all.find((w) => w.grant.id === selected.id);
+    if (row) shown.push(row);
+  }
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <p>Panoramica clienti, opportunità e aggiornamenti delle fonti.</p>
+          <p>Quali bandi lavorare oggi e quali clienti contattare.</p>
         </div>
         <div className="actions">
           <Link className="btn secondary" href="/fonti">Aggiorna fonti</Link>
@@ -84,74 +167,130 @@ export default async function Dashboard({
         <Kpi label="Ultimo sync" value={formatDate(stats.last_sync)} />
       </div>
 
-      <div style={{ height: 18 }} />
-
-      <section className="card">
-        <div className="card-title">
-          <div>
-            <h2>Clienti interessati al bando</h2>
-            <p className="muted small">
-              Compatibilità 0–100 di ogni cliente con il bando scelto (regione, dimensione, ATECO, temi,
-              investimento, tempistica): indica quanto il bando è adatto, non la probabilità di ottenerlo.
-            </p>
+      <div className="workbench">
+        <section className="card" aria-labelledby="bandi-title">
+          <div className="card-title">
+            <div>
+              <h2 id="bandi-title">Bandi da lavorare</h2>
+              <p className="muted small">
+                Bandi compatibili con una parte dei clienti. Prima quelli in scadenza, poi quelli con più clienti.
+              </p>
+            </div>
+            <Link href="/bandi">Tutti i bandi</Link>
           </div>
-          {selected && (
-            <form method="get" className="actions">
-              <label htmlFor="bando" className="sr-only">Bando</label>
-              <select id="bando" name="bando" defaultValue={selected.id} className="search client-select">
-                {[...grantsBySource].map(([source, list]) => (
-                  <optgroup key={source} label={source}>
-                    {list.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-              <button className="btn secondary">Mostra</button>
-            </form>
+
+          {shown.length ? (
+            <ol className="worklist">
+              {shown.map(({ grant, count, high }) => {
+                const current = grant.id === selected?.id;
+                return (
+                  <li key={grant.id}>
+                    <Link
+                      href={`/?bando=${encodeURIComponent(grant.id)}#clienti`}
+                      className={current ? "work-row current" : "work-row"}
+                      aria-current={current ? "true" : undefined}
+                      scroll={false}
+                    >
+                      <DeadlineStamp grant={grant} />
+                      <span className="work-main">
+                        <span className="work-title">{grant.title}</span>
+                        <span className="muted small">
+                          {grant.source} · {grant.regions.includes("ITALIA") ? "Nazionale" : grant.regions.join(", ")}
+                        </span>
+                      </span>
+                      <span className="work-count">
+                        <strong>{count}</strong> {count === 1 ? "cliente" : "clienti"}
+                        {high > 0 && <span className="small"> · {high} alta</span>}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p className="muted">
+              {generic > 0
+                ? "Tutti i bandi attivi sono compatibili con ogni cliente: il punteggio non li distingue."
+                : customers.length
+                ? `Nessun bando attivo raggiunge il ${min}% di compatibilità con i clienti. Aggiorna le fonti o completa le schede cliente.`
+                : "Aggiungi i clienti per vedere quali bandi lavorare."}
+            </p>
           )}
-        </div>
-
-        {selected ? (
-          <>
-            <p className="small">
-              {selected.url
-                ? <a className="title-link" href={selected.url} target="_blank" rel="noreferrer">{selected.title} ↗</a>
-                : <strong>{selected.title}</strong>}
-              <span className="muted">
-                {" "}· {selected.source} · {selected.regions.includes("ITALIA") ? "Nazionale" : selected.regions.join(", ")}
-                {" "}· scad. {formatDate(selected.deadline)}
-              </span>
+          {generic > 0 && shown.length > 0 && (
+            <p className="muted small worklist-note">
+              Altri {generic} bandi sono compatibili con tutti i {customers.length} clienti e non compaiono qui.{" "}
+              <Link className="title-link" href="/bandi">Vedili in Bandi</Link>
             </p>
-            <p className="result-count">
-              <strong>{interested.length}</strong> clienti su {customers.length} con compatibilità ≥ {min}%
-              {interested.length > MAX_CLIENTS && ` · mostrati i primi ${MAX_CLIENTS}`}
-            </p>
-            <MatchChart
-              labelHeader="Cliente"
-              items={interested.slice(0, MAX_CLIENTS).map(({ customer: c, match }) => ({
-                id: c.id,
-                label: c.ragione_sociale,
-                detail: [c.regione || "regione mancante", c.dimensione, c.ateco && `ATECO ${c.ateco}`]
-                  .filter(Boolean).join(" · "),
-                href: `/clienti/${c.id}`,
-                match,
-              }))}
-            />
-          </>
-        ) : (
-          <p className="muted">Servono almeno un cliente e un bando attivo per calcolare la compatibilità.</p>
-        )}
-      </section>
+          )}
+        </section>
 
-      <div style={{ height: 18 }} />
+        <section className="card" id="clienti" aria-labelledby="clienti-title">
+          <h2 id="clienti-title">Clienti compatibili</h2>
+          {selected ? (
+            <>
+              <p className="selected-grant">
+                {selected.url ? (
+                  <a className="title-link" href={selected.url} target="_blank" rel="noreferrer">
+                    {selected.title} ↗<span className="sr-only"> (si apre in una nuova scheda)</span>
+                  </a>
+                ) : (
+                  <strong>{selected.title}</strong>
+                )}
+                <span className="muted small">
+                  <DeadlineStamp grant={selected} /> {selected.source} · scadenza {formatDate(selected.deadline)}
+                </span>
+              </p>
+              <p className="result-count">
+                <strong>{interested.length}</strong> clienti su {customers.length} con compatibilità ≥ {min}%
+                {groups.length > 0 && `, in ${groups.length} ${groups.length === 1 ? "profilo" : "profili"}`}.
+              </p>
+
+              {groups.length ? (
+                <ul className="profiles">
+                  {groups.map(({ match: m, members }) => {
+                    const missing = CRITERIA.filter(([key, , max]) => m[key] < max);
+                    return (
+                      <li key={members[0].id} className="profile">
+                        <div className="profile-head">
+                          <span className={`badge ${m.classe === "ALTA" ? "high" : "medium"}`}>{m.score_totale}%</span>
+                          <span className="profile-bar" aria-hidden="true"><i style={{ width: `${m.score_totale}%` }} /></span>
+                          <span className="small">
+                            <strong>{members.length}</strong> {members.length === 1 ? "cliente" : "clienti"}
+                          </span>
+                        </div>
+                        <p className="muted small profile-gap">
+                          {missing.length
+                            ? <>Punti mancanti: {missing.map(([key, label, max]) => `${label} ${m[key]}/${max}`).join(" · ")}</>
+                            : "Tutti i criteri soddisfatti."}
+                        </p>
+                        <ClientLinks members={members} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="muted">
+                  Nessun cliente raggiunge il {min}% su questo bando. Scegli un altro bando dall&apos;elenco.
+                </p>
+              )}
+              <p className="muted small">
+                La compatibilità misura quanto il bando è adatto al cliente, non la probabilità di ottenerlo.
+              </p>
+            </>
+          ) : (
+            <p className="muted">Scegli un bando dall&apos;elenco per vedere i clienti compatibili.</p>
+          )}
+        </section>
+      </div>
 
       <section className="card">
         <div className="card-title">
           <h2>Sincronizzazioni</h2>
-          <Link href="/fonti">Dettagli →</Link>
+          <Link href="/fonti">Dettagli</Link>
         </div>
         <div className="grid">
           {syncs.slice(0, 6).map((run) => (
-            <div key={run.id} className="actions" style={{ justifyContent: "space-between", borderTop: "1px solid #e4e7ec", paddingTop: 12 }}>
+            <div key={run.id} className="actions" style={{ justifyContent: "space-between", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
               <div>
                 <strong>{sourceLabel(run.source)}</strong>
                 <div className="muted small">{formatDate(run.started_at)} · {run.records} record</div>
