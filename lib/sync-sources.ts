@@ -7,6 +7,7 @@ export const SYNC_SOURCES = {
   "camcom-lg": "CCIAA Maremma e Tirreno",
   "camcom-fi": "CCIAA Firenze",
   "camcom-bg": "CCIAA Bergamo",
+  "contributi-europa": "Contributi Europa",
 } as const;
 
 export type SyncSource = keyof typeof SYNC_SOURCES;

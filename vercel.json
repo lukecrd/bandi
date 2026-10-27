@@ -25,6 +25,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/sync-source/contributi-europa",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/cron/sync-teamleader",
       "schedule": "0 3 * * *"
     }

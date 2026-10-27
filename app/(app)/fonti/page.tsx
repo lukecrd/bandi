@@ -78,6 +78,16 @@ export default async function SourcesPage() {
             <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.bg.camcom.it/bandi">Bergamo</a>
           </div>
         </section>
+
+        <section className="card source-card">
+          <span className="badge open">Aggregatore</span>
+          <strong>Contributi Europa</strong>
+          <p className="muted">
+            Bandi nazionali, regionali ed europei pubblicati negli ultimi due anni. Il connettore legge l&apos;API
+            WordPress del sito (scadenza, beneficiari, area geografica) e scarta i bandi chiusi.
+          </p>
+          <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.contributieuropa.com/tuttibandi/">Apri il portale</a>
+        </section>
       </div>
 
       <div style={{ height: 18 }} />
@@ -94,7 +104,8 @@ export default async function SourcesPage() {
 05:15 UTC  /api/cron/sync-camcom-lg
 05:30 UTC  /api/cron/sync-source/sviluppo-toscana
 05:45 UTC  /api/cron/sync-source/camcom-fi
-06:00 UTC  /api/cron/sync-source/camcom-bg`}</div>
+06:00 UTC  /api/cron/sync-source/camcom-bg
+06:15 UTC  /api/cron/sync-source/contributi-europa`}</div>
       </section>
 
       <div style={{ height: 18 }} />
