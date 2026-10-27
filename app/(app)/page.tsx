@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Kpi } from "@/components/kpi";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getActiveGrants,
   getCustomers,
   getDashboardStats,
+  getGrant,
   getRecentSyncRuns,
+  MATCHES_TAG,
 } from "@/lib/data";
 import { minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
 import { sourceLabel } from "@/lib/sync-sources";
@@ -27,6 +30,7 @@ const CRITERIA = [
 ] as const;
 
 type Scored = { customer: Customer; match: MatchResult };
+type GrantSummary = Pick<Grant, "id" | "title" | "source" | "regions" | "deadline" | "opening_date" | "status">;
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -38,8 +42,8 @@ function shortDate(value: string) {
 }
 
 // Giorno di calendario italiano: le date del DB arrivano come mezzanotte locale o UTC a seconda del server.
-const romeDay = (value: string | Date) =>
-  Date.parse(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date(value)));
+const ROME_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" });
+const romeDay = (value: string | Date) => Date.parse(ROME_DAY.format(new Date(value)));
 
 function daysLeft(deadline: string | null) {
   if (!deadline) return null;
@@ -47,7 +51,7 @@ function daysLeft(deadline: string | null) {
 }
 
 /** Timbro della scadenza: rosso entro 7 giorni, ambra entro 30. */
-function DeadlineStamp({ grant }: { grant: Grant }) {
+function DeadlineStamp({ grant }: { grant: GrantSummary }) {
   const days = daysLeft(grant.deadline);
   if (grant.status === "In arrivo" && grant.opening_date) {
     return <span className="badge forthcoming stamp">apre {shortDate(grant.opening_date)}</span>;
@@ -62,24 +66,41 @@ function DeadlineStamp({ grant }: { grant: Grant }) {
   );
 }
 
-function urgency(grant: Grant) {
+function urgency(grant: GrantSummary) {
   const days = daysLeft(grant.deadline);
   return days === null ? 2 : days <= 7 ? 0 : days <= 30 ? 1 : 2;
 }
 
-/** Bandi con almeno un cliente compatibile: prima i più urgenti, poi quelli con più clienti. */
-function workList(grants: Grant[], customers: Customer[], min: number) {
-  return grants
-    .map((grant) => {
-      const matches = customers.map((c) => scoreGrant(c, grant)).filter((m) => m.score_totale >= min);
-      return { grant, count: matches.length, high: matches.filter((m) => m.classe === "ALTA").length };
-    })
-    .filter((row) => row.count > 0)
-    .sort((a, b) =>
-      urgency(a.grant) - urgency(b.grant) ||
-      b.count - a.count ||
-      (daysLeft(a.grant.deadline) ?? Infinity) - (daysLeft(b.grant.deadline) ?? Infinity)
-    );
+/**
+ * Conteggio dei clienti compatibili per ogni bando attivo: è il calcolo pesante (bandi × clienti),
+ * quindi resta in cache finché una sync o una modifica ai clienti non invalida MATCHES_TAG.
+ */
+const getMatchCounts = unstable_cache(
+  async (min: number) => {
+    const [grants, customers] = await Promise.all([getActiveGrants(5000), getCustomers()]);
+    const rows = grants.flatMap((g) => {
+      const matches = customers.map((c) => scoreGrant(c, g)).filter((m) => m.score_totale >= min);
+      if (!matches.length) return [];
+      const grant: GrantSummary = {
+        id: g.id, title: g.title, source: g.source, regions: g.regions,
+        deadline: g.deadline, opening_date: g.opening_date, status: g.status,
+      };
+      return [{ grant, count: matches.length, high: matches.filter((m) => m.classe === "ALTA").length }];
+    });
+    return { rows, customers: customers.length };
+  },
+  ["dashboard-match-counts"],
+  { tags: [MATCHES_TAG] }
+);
+
+type WorkRow = Awaited<ReturnType<typeof getMatchCounts>>["rows"][number];
+
+/** Prima i bandi più urgenti, poi quelli con più clienti: ordinato a ogni richiesta perché i giorni cambiano. */
+function workList(rows: WorkRow[]) {
+  const keyed = rows.map((row) => ({ row, urgency: urgency(row.grant), days: daysLeft(row.grant.deadline) ?? Infinity }));
+  return keyed
+    .sort((a, b) => a.urgency - b.urgency || b.row.count - a.row.count || a.days - b.days)
+    .map((k) => k.row);
 }
 
 /** Clienti con gli stessi punti su ogni criterio sono indistinguibili: li mostriamo come un unico profilo. */
@@ -121,19 +142,20 @@ export default async function Dashboard({
 }) {
   const params = await searchParams;
   const bandoId = typeof params.bando === "string" ? params.bando : "";
-  const [stats, customers, syncs, grants] = await Promise.all([
+  const min = minMatchScore();
+  const [stats, customers, syncs, counts] = await Promise.all([
     getDashboardStats(),
     getCustomers(),
     getRecentSyncRuns(),
-    getActiveGrants(5000),
+    getMatchCounts(min),
   ]);
 
-  const min = minMatchScore();
   // Un bando compatibile con tutti i clienti non aiuta a scegliere chi chiamare: resta fuori dall'elenco.
-  const all = workList(grants, customers, min);
-  const work = all.filter((w) => w.count < customers.length);
+  const all = workList(counts.rows);
+  const work = all.filter((w) => w.count < counts.customers);
   const generic = all.length - work.length;
-  const selected = grants.find((g) => g.id === bandoId) ?? work[0]?.grant ?? null;
+  const selectedId = bandoId || work[0]?.grant.id;
+  const selected = selectedId ? await getGrant(selectedId) : null;
   const interested = selected
     ? customers
         .map((customer) => ({ customer, match: scoreGrant(customer, selected) }))

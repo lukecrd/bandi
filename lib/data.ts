@@ -1,6 +1,14 @@
+import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
 import type { CustomerFile } from "@/lib/allegati";
+
+// Tag della cache dei punteggi bando-cliente: va invalidato a ogni scrittura su bandi o clienti.
+export const MATCHES_TAG = "matches";
+
+function invalidateMatches() {
+  revalidateTag(MATCHES_TAG, { expire: 0 });
+}
 
 export async function getDashboardStats() {
   const sql = db();
@@ -74,6 +82,7 @@ export async function createCustomer(input: CustomerInput) {
       input.note,
     ]
   );
+  invalidateMatches();
   return rows[0] as Customer;
 }
 
@@ -124,6 +133,7 @@ export async function updateCustomer(id: string, input: CustomerInput, anagrafic
       anagrafica ? JSON.stringify(anagrafica) : null,
     ]
   );
+  invalidateMatches();
   return (rows[0] ?? null) as Customer | null;
 }
 
@@ -191,6 +201,7 @@ export async function getCustomerFileContent(customerId: string, fileId: string)
 export async function deleteCustomer(id: string) {
   const sql = db();
   await sql.query(`DELETE FROM customers WHERE id = $1`, [id]);
+  invalidateMatches();
 }
 
 export async function upsertCustomers(inputs: CustomerInput[]) {
@@ -235,6 +246,7 @@ export async function upsertCustomers(inputs: CustomerInput[]) {
     await sql.transaction(queries);
   }
 
+  invalidateMatches();
   return inputs.length;
 }
 
@@ -306,6 +318,12 @@ export async function getGrantRegions() {
   return rows.map((row) => String(row.region));
 }
 
+export async function getGrant(id: string) {
+  const sql = db();
+  const rows = await sql.query(`SELECT * FROM grants WHERE id = $1 LIMIT 1`, [id]);
+  return (rows[0] ?? null) as Grant | null;
+}
+
 export async function getActiveGrants(limit = 10000) {
   const sql = db();
   const rows = await sql.query(
@@ -364,6 +382,7 @@ export async function upsertGrants(grants: Grant[]) {
     await sql.transaction(queries);
   }
 
+  invalidateMatches();
   return grants.length;
 }
 
@@ -376,6 +395,7 @@ export async function closeExpiredGrants() {
        AND deadline IS NOT NULL
        AND deadline < CURRENT_DATE`
   );
+  invalidateMatches();
 }
 
 export async function startSyncRun(source: string) {
