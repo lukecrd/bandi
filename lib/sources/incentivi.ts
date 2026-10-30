@@ -1,6 +1,8 @@
 import { get } from "node:https";
 import type { Grant } from "@/lib/types";
 
+// Il sito blocca le connessioni da fuori Europa (ETIMEDOUT dagli USA): per questo in vercel.json
+// le route che lo sincronizzano girano in fra1.
 const BASE_URL = "https://www.incentivi.gov.it/solr/coredrupal/select";
 // Solo i campi usati da mapDoc: con fl=* ogni pagina pesa ~3 MB e il server chiude spesso la connessione a metà.
 const FIELDS = [

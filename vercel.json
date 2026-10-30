@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "app/api/cron/sync-incentivi/route.ts": { "regions": ["fra1"] },
+    "app/api/sync/route.ts": { "regions": ["fra1"] }
+  },
   "crons": [
     {
       "path": "/api/cron/sync-incentivi",
