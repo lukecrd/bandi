@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
-import { getGrantRegions, getGrants } from "@/lib/data";
+import { getCustomers, getGrantRegions, getGrants } from "@/lib/data";
+import { scoreGrant } from "@/lib/scoring";
 import { SYNC_SOURCES } from "@/lib/sync-sources";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,15 @@ export default async function GrantsPage({
   const source = typeof params.source === "string" ? params.source : "";
   const status = typeof params.status === "string" ? params.status : "";
   const region = typeof params.region === "string" ? params.region : "";
+  const customerId = typeof params.customer === "string" ? params.customer : "";
 
-  const [grants, regions] = await Promise.all([
+  const [grants, regions, customers] = await Promise.all([
     getGrants({ search: q, source, status, region, limit: 5000 }),
     getGrantRegions(),
+    getCustomers(),
   ]);
-  const filtered = Boolean(q || source || status || region);
+  const customer = customers.find((c) => c.id === customerId);
+  const filtered = Boolean(q || source || status || region || customerId);
 
   return (
     <>
@@ -69,6 +73,13 @@ export default async function GrantsPage({
             <option>Chiuso</option>
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="customer">Verifica match per cliente</label>
+          <select id="customer" name="customer" defaultValue={customerId}>
+            <option value="">Nessuno</option>
+            {customers.map((c) => <option key={c.id} value={c.id}>{c.ragione_sociale}</option>)}
+          </select>
+        </div>
         <div className="actions">
           <button className="btn">Filtra</button>
           {filtered && <Link className="btn ghost" href="/bandi">Azzera</Link>}
@@ -78,12 +89,14 @@ export default async function GrantsPage({
       <p className="result-count">
         <strong>{grants.length}</strong> {grants.length === 1 ? "bando" : "bandi"}
         {region && <> per <strong>{region}</strong> (inclusi i bandi nazionali)</>}
+        {customer && <> · match calcolato per <Link href={`/clienti/${customer.id}`}><strong>{customer.ragione_sociale}</strong></Link></>}
       </p>
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
+              {customer && <th>Match</th>}
               <th>Stato</th>
               <th>Titolo</th>
               <th>Territorio</th>
@@ -93,8 +106,20 @@ export default async function GrantsPage({
             </tr>
           </thead>
           <tbody>
-            {grants.map((grant) => (
+            {grants.map((grant) => {
+              // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
+              const match = customer && scoreGrant(customer, grant);
+              return (
               <tr key={grant.id}>
+                {match && (
+                  <td className="nowrap">
+                    <span className="score">{match.score_totale}</span>/100 <StatusBadge value={match.classe} />
+                    <div className="muted small" title="Regione · Dimensione · ATECO · Temi · Investimento · Tempistica">
+                      R {match.score_regione} · D {match.score_dimensione} · A {match.score_ateco} ·
+                      T {match.score_temi} · I {match.score_investimento} · C {match.score_tempistica}
+                    </div>
+                  </td>
+                )}
                 <td><StatusBadge value={grant.status} /></td>
                 <td className="title-cell">
                   {grant.url
@@ -112,8 +137,9 @@ export default async function GrantsPage({
                 <td className="nowrap">{date(grant.deadline)}</td>
                 <td className="small muted">{grant.topics.slice(0, 4).join(" · ") || "—"}</td>
               </tr>
-            ))}
-            {!grants.length && <tr><td colSpan={6} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
+              );
+            })}
+            {!grants.length && <tr><td colSpan={customer ? 7 : 6} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
           </tbody>
         </table>
       </div>

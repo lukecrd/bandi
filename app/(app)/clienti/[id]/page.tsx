@@ -47,6 +47,7 @@ export default async function CustomerDetail({
           <p>{customer.regione} · ATECO {customer.ateco || "non indicato"} · {customer.dimensione}</p>
         </div>
         <div className="actions">
+          <Link className="btn secondary" href={`/bandi?customer=${customer.id}`}>Verifica su bandi</Link>
           <Link className="btn secondary" href={`/api/export/matches?customerId=${customer.id}`}>Esporta match CSV</Link>
           <DeleteCustomerButton id={customer.id} />
         </div>
