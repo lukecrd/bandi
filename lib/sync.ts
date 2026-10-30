@@ -3,6 +3,7 @@ import { fetchIncentiviGov } from "@/lib/sources/incentivi";
 import { CHAMBERS, fetchCamCom } from "@/lib/sources/camcom";
 import { fetchSviluppoToscana } from "@/lib/sources/sviluppo-toscana";
 import { fetchContributiEuropa } from "@/lib/sources/contributi-europa";
+import { fetchAnac, fetchTed } from "@/lib/sources/appalti";
 import {
   closeExpiredGrants,
   finishSyncRun,
@@ -17,6 +18,8 @@ function fetchSource(source: SyncSource) {
     case "eu": return fetchEUFunding();
     case "sviluppo-toscana": return fetchSviluppoToscana();
     case "contributi-europa": return fetchContributiEuropa();
+    case "ted": return fetchTed();
+    case "anac": return fetchAnac();
     default: return fetchCamCom(CHAMBERS[source]);
   }
 }

@@ -8,7 +8,13 @@ export const SYNC_SOURCES = {
   "camcom-fi": "CCIAA Firenze",
   "camcom-bg": "CCIAA Bergamo",
   "contributi-europa": "Contributi Europa",
+  ted: "TED - Gare UE",
+  anac: "ANAC - Gare d'appalto",
 } as const;
+
+// Gare d'appalto: nel catalogo bandi ma fuori dal matching automatico con i clienti,
+// perché il punteggio (temi, dimensione, ATECO) è pensato per la finanza agevolata.
+export const TENDER_SOURCES: string[] = [SYNC_SOURCES.ted, SYNC_SOURCES.anac];
 
 export type SyncSource = keyof typeof SYNC_SOURCES;
 
