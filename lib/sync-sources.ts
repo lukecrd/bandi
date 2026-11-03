@@ -9,6 +9,7 @@ export const SYNC_SOURCES = {
   "camcom-bg": "CCIAA Bergamo",
   "camcom-tno": "CCIAA Toscana Nord-Ovest",
   "camcom-ptpo": "CCIAA Pistoia-Prato",
+  "bandi-camere": "BandiCamereDiCommercio.it",
   "contributi-europa": "Contributi Europa",
   ted: "TED - Gare UE",
   anac: "ANAC - Gare d'appalto",

@@ -49,6 +49,10 @@
       "schedule": "15 7 * * *"
     },
     {
+      "path": "/api/cron/sync-source/bandi-camere",
+      "schedule": "30 7 * * *"
+    },
+    {
       "path": "/api/cron/sync-teamleader",
       "schedule": "0 3 * * *"
     }
