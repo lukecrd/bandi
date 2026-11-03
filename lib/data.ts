@@ -274,12 +274,13 @@ export async function getGrants(options?: {
        AND ($3 = '' OR status = $3)
        -- national grants ('ITALIA') apply to every region
        AND ($5 = '' OR $5 = ANY(regions) OR 'ITALIA' = ANY(regions))
+       AND source <> ALL($6) -- gare d'appalto fuori dalla ricerca bandi
      ORDER BY
        CASE status WHEN 'Aperto' THEN 0 WHEN 'In arrivo' THEN 1 ELSE 2 END,
        deadline NULLS LAST,
        title
      LIMIT $4`,
-    [search, source, status, limit, region]
+    [search, source, status, limit, region, TENDER_SOURCES]
   );
   return rows as Grant[];
 }

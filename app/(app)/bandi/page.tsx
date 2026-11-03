@@ -2,7 +2,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { getCustomers, getGrantRegions, getGrants } from "@/lib/data";
 import { scoreGrant } from "@/lib/scoring";
-import { SYNC_SOURCES } from "@/lib/sync-sources";
+import { SYNC_SOURCES, TENDER_SOURCES } from "@/lib/sync-sources";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,7 @@ export default async function GrantsPage({
           <label htmlFor="source">Fonte</label>
           <select id="source" name="source" defaultValue={source}>
             <option value="">Tutte</option>
-            {Object.values(SYNC_SOURCES).map((s) => <option key={s} value={s}>{s}</option>)}
+            {Object.values(SYNC_SOURCES).filter((s) => !TENDER_SOURCES.includes(s)).map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="field">

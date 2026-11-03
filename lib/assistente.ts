@@ -25,7 +25,6 @@ const searchBandiInput = z.object({
   ateco: z.string().max(20).optional(),
   scadenza_da: z.string().date().optional(),
   scadenza_a: z.string().date().optional(),
-  includi_gare: z.boolean().optional(),
   limite: z.number().int().min(1).max(50).optional(),
 });
 
@@ -40,7 +39,7 @@ const TOOLS = [
   {
     name: "search_bandi",
     description:
-      "Cerca bandi (finanza agevolata) e, se richiesto, gare d'appalto TED/ANAC nel database. Tutti i filtri sono opzionali e combinati in AND. Restituisce al massimo `limite` bandi ordinati per scadenza, con titolo, ente, stato, regioni, dimensioni ammesse, codici ATECO ammessi, temi, importi, date e url.",
+      "Cerca bandi (finanza agevolata) nel database; le gare d'appalto sono escluse. Tutti i filtri sono opzionali e combinati in AND. Restituisce al massimo `limite` bandi ordinati per scadenza, con titolo, ente, stato, regioni, dimensioni ammesse, codici ATECO ammessi, temi, importi, date e url.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -50,7 +49,6 @@ const TOOLS = [
         ateco: { type: "string", description: "Codice o prefisso ATECO (es. '25' o '25.62'). Include i bandi senza filtro ATECO." },
         scadenza_da: { type: "string", description: "Data minima di scadenza, formato YYYY-MM-DD." },
         scadenza_a: { type: "string", description: "Data massima di scadenza, formato YYYY-MM-DD." },
-        includi_gare: { type: "boolean", description: "Includere le gare d'appalto TED/ANAC (default false)." },
         limite: { type: "integer", description: "Numero massimo di risultati, 1-50 (default 20)." },
       },
     },
@@ -118,12 +116,12 @@ async function searchBandi(raw: unknown) {
             OR EXISTS (SELECT 1 FROM unnest(ateco_filter) f WHERE $4 LIKE f || '%' OR f LIKE $4 || '%'))
        AND ($5::date IS NULL OR deadline >= $5::date)
        AND ($6::date IS NULL OR deadline <= $6::date)
-       AND ($7 OR source <> ALL($8))
+       AND source <> ALL($7)
      ORDER BY deadline NULLS LAST, title
-     LIMIT $9`,
+     LIMIT $8`,
     [
       i.testo?.trim() ?? "", stato, i.regione?.trim() ?? "", i.ateco?.replace(/\s/g, "") ?? "",
-      i.scadenza_da ?? null, i.scadenza_a ?? null, i.includi_gare ?? false, TENDER_SOURCES, i.limite ?? 20,
+      i.scadenza_da ?? null, i.scadenza_a ?? null, TENDER_SOURCES, i.limite ?? 20,
     ]
   );
   return { totale: rows.length, bandi: rows };
