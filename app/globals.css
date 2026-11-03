@@ -389,3 +389,37 @@ td.empty { text-align: center; padding: 48px 16px; }
   .work-row .badge.stamp { justify-self: start; }
   .card-title { flex-wrap: wrap; }
 }
+
+.chat { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.chat-log { display: grid; align-content: start; gap: 12px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.chat-msg { max-width: 860px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--line); }
+.chat-msg.user { justify-self: end; background: var(--brand-soft); border-color: transparent; }
+.chat-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.chat-form { display: flex; gap: 10px; align-items: flex-end; margin-top: 14px; }
+.chat-form .field.grow { flex: 1; }
+.chat-meta { display: flex; align-items: center; gap: 8px; }
+.chat-meta .btn { padding: 0 6px; }
+.chat-form .btn.listening { border-color: var(--red); color: var(--red); }
+.chat-option { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; }
+.chat-fab {
+  position: fixed; right: 24px; bottom: 24px; z-index: 50;
+  width: 56px; height: 56px; border-radius: 50%; border: 0;
+  background: var(--brand); color: white; font-size: 24px; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(20, 16, 50, .25);
+}
+.chat-fab:hover { background: #3c2f84; }
+.chat-panel {
+  position: fixed; right: 24px; bottom: 92px; z-index: 50;
+  width: min(440px, calc(100vw - 32px)); height: min(640px, calc(100vh - 120px));
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 16px 18px; box-shadow: 0 12px 32px rgba(20, 16, 50, .2);
+}
+.chat-panel[hidden] { display: none; }
+.chat-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.chat-panel-head p { margin: 2px 0 0; }
+.chat-panel .chat-msg { max-width: 100%; }
+@media (max-width: 700px) {
+  .chat-fab { right: 16px; bottom: 16px; }
+  .chat-panel { right: 16px; bottom: 84px; height: calc(100vh - 100px); }
+}

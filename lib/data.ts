@@ -330,7 +330,10 @@ export async function getGrant(id: string) {
 export async function getActiveGrants(limit = 10000) {
   const sql = db();
   const rows = await sql.query(
-    `SELECT *
+    // senza `raw` (oltre metà dei byte): nessun chiamante lo legge
+    `SELECT id, title, ente, level, status, regions, sizes, ateco_filter, topics, invest_min_eur,
+            invest_max_eur, opening_date, deadline, aid_type, budget, url, source, source_updated_at,
+            requirements, NULL AS raw, synced_at
      FROM grants
      WHERE status IN ('Aperto', 'In arrivo')
        AND (deadline IS NULL OR deadline >= CURRENT_DATE)

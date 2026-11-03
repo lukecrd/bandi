@@ -1,3 +1,4 @@
+import { ChatWidget } from "@/components/chat-widget";
 import { NewGrantsAlert } from "@/components/new-grants-alert";
 import { Sidebar } from "@/components/sidebar";
 
@@ -8,6 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="main">
         <div className="container">{children}</div>
         <NewGrantsAlert />
+        <ChatWidget />
       </main>
     </div>
   );
