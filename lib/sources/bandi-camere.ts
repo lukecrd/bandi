@@ -48,7 +48,8 @@ export function regionForEnte(ente: string): string[] {
 
 export function isOwnChamber(ente: string) {
   const name = normName(ente);
-  return /cciaa|camera/.test(name) && OWN_CHAMBERS.some((own) => name.includes(own));
+  // parola intera: "roma" non deve scartare la CCIAA della Romagna
+  return /cciaa|camera/.test(name) && OWN_CHAMBERS.some((own) => new RegExp(`(^|\\s)${own}(\\s|$)`).test(name));
 }
 
 function mapStatus(raw: string): Grant["status"] {

@@ -1,6 +1,5 @@
 import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
-import { TENDER_SOURCES } from "@/lib/sync-sources";
 import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
 import type { CustomerFile } from "@/lib/allegati";
 
@@ -16,10 +15,9 @@ export async function getDashboardStats() {
   const [row] = await sql.query(
     `SELECT
       (SELECT COUNT(*)::int FROM customers) AS customers,
-      (SELECT COUNT(*)::int FROM grants WHERE status = 'Aperto' AND source <> ALL($1)) AS open_grants,
-      (SELECT COUNT(*)::int FROM grants WHERE status = 'In arrivo' AND source <> ALL($1)) AS forthcoming_grants,
-      (SELECT MAX(finished_at) FROM sync_runs WHERE status = 'success') AS last_sync`,
-    [TENDER_SOURCES]
+      (SELECT COUNT(*)::int FROM grants WHERE status = 'Aperto') AS open_grants,
+      (SELECT COUNT(*)::int FROM grants WHERE status = 'In arrivo') AS forthcoming_grants,
+      (SELECT MAX(finished_at) FROM sync_runs WHERE status = 'success') AS last_sync`
   );
   return row as {
     customers: number;
@@ -274,13 +272,12 @@ export async function getGrants(options?: {
        AND ($3 = '' OR status = $3)
        -- national grants ('ITALIA') apply to every region
        AND ($5 = '' OR $5 = ANY(regions) OR 'ITALIA' = ANY(regions))
-       AND source <> ALL($6) -- gare d'appalto fuori dalla ricerca bandi
      ORDER BY
        CASE status WHEN 'Aperto' THEN 0 WHEN 'In arrivo' THEN 1 ELSE 2 END,
        deadline NULLS LAST,
        title
      LIMIT $4`,
-    [search, source, status, limit, region, TENDER_SOURCES]
+    [search, source, status, limit, region]
   );
   return rows as Grant[];
 }
@@ -296,10 +293,9 @@ export async function getNewGrants(since: string, limit = 20) {
      FROM grants
      WHERE first_seen_at > $1
        AND status IN ('Aperto', 'In arrivo')
-       AND source <> ALL($3)
      ORDER BY first_seen_at DESC, deadline NULLS LAST
      LIMIT $2`,
-    [since, limit, TENDER_SOURCES]
+    [since, limit]
   );
   return {
     total: rows.length ? Number(rows[0].total) : 0,
@@ -338,10 +334,9 @@ export async function getActiveGrants(limit = 10000) {
      FROM grants
      WHERE status IN ('Aperto', 'In arrivo')
        AND (deadline IS NULL OR deadline >= CURRENT_DATE)
-       AND source <> ALL($2)
      ORDER BY deadline NULLS LAST
      LIMIT $1`,
-    [limit, TENDER_SOURCES]
+    [limit]
   );
   return rows as Grant[];
 }

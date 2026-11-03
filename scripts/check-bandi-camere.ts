@@ -14,7 +14,9 @@ assert.deepEqual(regionForEnte("Ente sconosciuto"), []);
 assert.equal(isOwnChamber("CCIAA di Firenze"), true);
 assert.equal(isOwnChamber("CCIAA di Pistoia-Prato"), true);
 assert.equal(isOwnChamber("CCIAA Toscana Nord Ovest (Pisa, Lucca Massa Carrara) "), true);
-assert.equal(isOwnChamber("CCIAA di Roma"), false);
+assert.equal(isOwnChamber("CCIAA di Roma"), true);
+assert.equal(isOwnChamber("CCIAA della Romagna"), false); // contiene "roma" ma è un'altra Camera
+assert.equal(isOwnChamber("Comune di Roma"), false);
 assert.equal(isOwnChamber("Regione Toscana"), false);
 
 // struttura reale di una scheda (ridotta)

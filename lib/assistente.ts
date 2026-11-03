@@ -2,7 +2,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getActiveGrants, getCustomer, getCustomers } from "@/lib/data";
 import { scoreAll } from "@/lib/scoring";
-import { TENDER_SOURCES } from "@/lib/sync-sources";
 import type { Customer, Grant } from "@/lib/types";
 
 // gli id dei modelli Gemini cambiano spesso: sovrascrivibile da env
@@ -39,7 +38,7 @@ const TOOLS = [
   {
     name: "search_bandi",
     description:
-      "Cerca bandi (finanza agevolata) nel database; le gare d'appalto sono escluse. Tutti i filtri sono opzionali e combinati in AND. Restituisce al massimo `limite` bandi ordinati per scadenza, con titolo, ente, stato, regioni, dimensioni ammesse, codici ATECO ammessi, temi, importi, date e url.",
+      "Cerca bandi (finanza agevolata) nel database. Tutti i filtri sono opzionali e combinati in AND. Restituisce al massimo `limite` bandi ordinati per scadenza, con titolo, ente, stato, regioni, dimensioni ammesse, codici ATECO ammessi, temi, importi, date e url.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -66,7 +65,7 @@ const TOOLS = [
   {
     name: "match_cliente",
     description:
-      "Restituisce i bandi attivi più adatti a un cliente, calcolati con il punteggio di matching dell'app (0-100: regione 25, dimensione 15, ATECO 15, temi 25, investimento 10, tempistica 10; classe ALTA >= 75, MEDIA >= 50). Le gare d'appalto sono escluse. Serve l'id ottenuto da cerca_clienti.",
+      "Restituisce i bandi attivi più adatti a un cliente, calcolati con il punteggio di matching dell'app (0-100: regione 25, dimensione 15, ATECO 15, temi 25, investimento 10, tempistica 10; classe ALTA >= 75, MEDIA >= 50). Serve l'id ottenuto da cerca_clienti.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -116,12 +115,11 @@ async function searchBandi(raw: unknown) {
             OR EXISTS (SELECT 1 FROM unnest(ateco_filter) f WHERE $4 LIKE f || '%' OR f LIKE $4 || '%'))
        AND ($5::date IS NULL OR deadline >= $5::date)
        AND ($6::date IS NULL OR deadline <= $6::date)
-       AND source <> ALL($7)
      ORDER BY deadline NULLS LAST, title
-     LIMIT $8`,
+     LIMIT $7`,
     [
       i.testo?.trim() ?? "", stato, i.regione?.trim() ?? "", i.ateco?.replace(/\s/g, "") ?? "",
-      i.scadenza_da ?? null, i.scadenza_a ?? null, TENDER_SOURCES, i.limite ?? 20,
+      i.scadenza_da ?? null, i.scadenza_a ?? null, i.limite ?? 20,
     ]
   );
   return { totale: rows.length, bandi: rows };

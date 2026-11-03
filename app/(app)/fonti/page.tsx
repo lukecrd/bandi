@@ -108,7 +108,8 @@ export default async function SourcesPage() {
 06:15 UTC  /api/cron/sync-source/contributi-europa
 07:00 UTC  /api/cron/sync-source/camcom-tno
 07:15 UTC  /api/cron/sync-source/camcom-ptpo
-07:30 UTC  /api/cron/sync-source/bandi-camere`}</div>
+07:30 UTC  /api/cron/sync-source/bandi-camere
+07:45 UTC  /api/cron/sync-source/camcom-rm`}</div>
       </section>
 
       <div style={{ height: 18 }} />

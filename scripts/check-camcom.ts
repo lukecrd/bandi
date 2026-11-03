@@ -1,6 +1,6 @@
 // Run: npx tsx scripts/check-camcom.ts
 import assert from "node:assert/strict";
-import { parseDetailDates } from "../lib/sources/camcom";
+import { NOT_A_BANDO, parseDetailDates, parseSlashDate } from "../lib/sources/camcom";
 
 // Toscana Nord-Ovest, testo reale della scheda "Doppia Transizione – II edizione 2026"
 assert.deepEqual(
@@ -25,5 +25,19 @@ assert.deepEqual(parseDetailDates("da presentare entro il 15/12/2026"), { openin
 // "entro 120 gg" non è una data
 assert.deepEqual(parseDetailDates("rendicontazione da farsi entro entro 120 gg dalla data"), { opening: null, deadline: null });
 assert.deepEqual(parseDetailDates(null), { opening: null, deadline: null });
+// Roma scrive le date con il trattino
+assert.equal(parseSlashDate("18-12-2026"), "2026-12-18");
+assert.equal(parseSlashDate("ore 16:00 del 1/12/2026"), "2026-12-01");
+
+// avvisi di Roma che non sono bandi di contributo
+for (const title of [
+  "Bando Voucher Doppia Transizione Digitale e Ecologica 2025 - Provvedimenti di liquidazione",
+  "Bando per il sostegno alla competitività delle imprese 2026 - I edizione. Graduatoria e Provvedimento di concessione del contributo",
+  "Avviso per la riapertura delle iscrizioni al Registro delle Imprese Storiche Italiane - Anno 2026",
+  "Bando pubblico per l'indizione delle sessioni di esame per l'anno 2026 Ruolo Conducenti",
+  "Servizi di mediazione e di arbitrato - Avviso pubblico per l'iscrizione nell'Elenco dei mediatori",
+]) assert.ok(NOT_A_BANDO.test(title), title);
+for (const title of ["Bando ITS Academy 2026", "Bando Nuove Imprese 2026", "Bando Idea innovativa, la nuova imprenditorialità al femminile 2026"])
+  assert.ok(!NOT_A_BANDO.test(title), title);
 
 console.log("check-camcom: ok");

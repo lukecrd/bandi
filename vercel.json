@@ -33,14 +33,6 @@
       "schedule": "15 6 * * *"
     },
     {
-      "path": "/api/cron/sync-source/ted",
-      "schedule": "30 6 * * *"
-    },
-    {
-      "path": "/api/cron/sync-source/anac",
-      "schedule": "45 6 * * *"
-    },
-    {
       "path": "/api/cron/sync-source/camcom-tno",
       "schedule": "0 7 * * *"
     },
@@ -51,6 +43,10 @@
     {
       "path": "/api/cron/sync-source/bandi-camere",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/sync-source/camcom-rm",
+      "schedule": "45 7 * * *"
     },
     {
       "path": "/api/cron/sync-teamleader",

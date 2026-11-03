@@ -12,7 +12,8 @@ export type Chamber = {
   area: string;
   // Camere senza l'elenco /bandi paginato: pagine (o blocchi di pagina) per stato,
   // `links` è il selettore CSS dei link alle schede dei bandi
-  sections?: { path: string; status: string; links: string }[];
+  // `status` assente: stato dedotto dalla scadenza ("Scade il:" accanto al link)
+  sections?: { path: string; status?: string; links: string }[];
 };
 
 export const CHAMBERS = {
@@ -61,6 +62,17 @@ export const CHAMBERS = {
       { path: "/servizi/contributi/index", status: "Chiuso", links: "nav[aria-label='Menù di navigazione contributi camerali scaduti'] a" },
     ],
   },
+  "camcom-rm": {
+    idPrefix: "CAMCOM-RM",
+    baseUrl: "https://www.rm.camcom.it",
+    ente: "CCIAA Roma",
+    region: "Lazio",
+    area: "nella città metropolitana di Roma",
+    // shortcut: solo la prima pagina (20 avvisi più recenti); i bandi aperti stanno tutti lì, leggere anche ?inizio=20 se un giorno non basta
+    sections: [
+      { path: "/pagina82_avvisi-pubblici-bandi-per-contributi-e-attivit-promozionali-altre-opportunit.html", links: ".campoOggetto255 a" },
+    ],
+  },
 } satisfies Record<string, Chamber>;
 
 const USER_AGENT = "BandiMatch/1.0 (+matching bandi-clienti; contatto: imposta CAMCOM_LG_CONTACT)";
@@ -95,10 +107,10 @@ export async function fetchHtml(url: string): Promise<string> {
   return response.text();
 }
 
-/** Converte "30/09/2026" o "ore 16:00 del 1/12/2026" -> ISO. Ignora testo aggiuntivo tipo "salvo chiusura anticipata…". */
+/** Converte "30/09/2026", "18-12-2026" o "ore 16:00 del 1/12/2026" -> ISO. Ignora testo aggiuntivo tipo "salvo chiusura anticipata…". */
 export function parseSlashDate(raw: string | null): string | null {
   if (!raw) return null;
-  const match = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const match = raw.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
   if (!match) return null;
   const [, dd, mm, yyyy] = match;
   const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
@@ -269,7 +281,7 @@ function mapToGrant(item: ListedBando, detailText: string | null, chamber: Chamb
   const deadline = parseSlashDate(item.deadlineRaw) ?? parseItalianLongDate(item.deadlineRaw) ?? fromText.deadline;
   const normalized = normalizeStatus(item.statusRaw, deadline);
   const originalLabel = normalized.originalLabel;
-  const publishedAt = fromText.opening ?? parseItalianLongDate(item.publishedRaw);
+  const publishedAt = fromText.opening ?? parseSlashDate(item.publishedRaw) ?? parseItalianLongDate(item.publishedRaw);
   const today = new Date().toISOString().slice(0, 10);
   // le pagine "aperti" includono anche i bandi di prossima apertura
   const status = normalized.status === "Aperto" && publishedAt && fromText.opening && publishedAt > today ? "In arrivo" : normalized.status;
@@ -310,6 +322,11 @@ function mapToGrant(item: ListedBando, detailText: string | null, chamber: Chamb
   };
 }
 
+// Negli elenchi per sezione compaiono anche esiti, graduatorie e avvisi non di contributo
+// (iscrizioni a registri ed elenchi, esami): non sono bandi da proporre ai clienti.
+export const NOT_A_BANDO =
+  /graduatori|provvediment|liquidazion|esit[oi]\b|soggetti attuatori|elenco (?:delle imprese )?(?:ammess|benefic)|riapertura delle iscrizioni|sessioni di esame|(?:iscrizione nell|ampliamento dell)['’]elenco/i;
+
 // I parametri CAMCOM_LG_* valgono per tutte le Camere (nomi storici).
 export async function fetchCamCom(chamber: Chamber): Promise<Grant[]> {
   const maxPages = Math.max(1, Number(process.env.CAMCOM_LG_MAX_PAGES ?? 10));
@@ -323,11 +340,17 @@ export async function fetchCamCom(chamber: Chamber): Promise<Grant[]> {
     $(section.links).each((_, el) => {
       const href = $(el).attr("href");
       const title = $(el).text().replace(/\s+/g, " ").trim();
-      if (!href || !title) return;
+      if (!href || !title || NOT_A_BANDO.test(title)) return;
       const url = new URL(href, chamber.baseUrl);
       const slug = url.pathname.replace(/^\/+|\/+$/g, "");
+      // il primo antenato con "Scade il:" è il riquadro dell'avviso (Roma); altrove non c'è e restano null
+      const box = $(el).parents().filter((_, p) => /scade il:/i.test($(p).text())).first().text();
       if (!bySlug.has(slug)) {
-        bySlug.set(slug, { title, url: url.href, slug, statusRaw: section.status, deadlineRaw: null, publishedRaw: null });
+        bySlug.set(slug, {
+          title, url: url.href, slug, statusRaw: section.status ?? null,
+          deadlineRaw: box.match(/Scade il:\s*([\d/-]+)/i)?.[1] ?? null,
+          publishedRaw: box.match(/Pubblicato il\s*:\s*([\d/-]+)/i)?.[1] ?? null,
+        });
       }
     });
     await sleep(delayMs);
@@ -356,7 +379,7 @@ export async function fetchCamCom(chamber: Chamber): Promise<Grant[]> {
 
   for (const item of items) {
     // i bandi chiusi non servono al matching: niente dettaglio, sync più veloce
-    const wantDetail = fetchDetails && normalizeStatus(item.statusRaw, null).status !== "Chiuso";
+    const wantDetail = fetchDetails && normalizeStatus(item.statusRaw, parseSlashDate(item.deadlineRaw)).status !== "Chiuso";
     const detailText = wantDetail ? await fetchDetailText(item.url) : null;
     grants.push(mapToGrant(item, detailText, chamber));
     if (wantDetail) await sleep(delayMs);
