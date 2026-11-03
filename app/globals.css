@@ -401,6 +401,7 @@ td.empty { text-align: center; padding: 48px 16px; }
 .chat-meta .btn { padding: 0 6px; }
 .chat-form .btn.listening { border-color: var(--red); color: var(--red); }
 .chat-option { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; }
+.chat-option select { max-width: 100%; min-width: 0; flex: 1; }
 .chat-fab {
   position: fixed; right: 24px; bottom: 24px; z-index: 50;
   width: 56px; height: 56px; border-radius: 50%; border: 0;

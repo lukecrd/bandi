@@ -29,13 +29,39 @@ function recognitionCtor(): RecognitionCtor | undefined {
 }
 
 // Gli url letti ad alta voce sono incomprensibili: li tolgo.
-function speak(text: string) {
+function speak(text: string, voice?: SpeechSynthesisVoice) {
   const synth = window.speechSynthesis;
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text.replace(/https?:\/\/\S+/g, "").replace(/^- /gm, ""));
   utterance.lang = "it-IT";
-  utterance.voice = synth.getVoices().find((v) => v.lang.startsWith("it")) ?? null;
+  utterance.voice = voice ?? null;
   synth.speak(utterance);
+}
+
+// Voci italiane, le più naturali prima: le "Natural/Online" di Edge sono neurali, "Google" di Chrome è discreta.
+const naturalness = (v: SpeechSynthesisVoice) =>
+  (/natural/i.test(v.name) ? 4 : 0) + (/online|neural/i.test(v.name) ? 2 : 0) + (/google/i.test(v.name) ? 1 : 0);
+const NO_VOICES: SpeechSynthesisVoice[] = [];
+let italianVoices = NO_VOICES;
+// il browser carica le voci in modo asincrono e le annuncia con "voiceschanged"
+function subscribeVoices(onChange: () => void) {
+  const synth = window.speechSynthesis;
+  const update = () => {
+    italianVoices = synth.getVoices().filter((v) => v.lang.startsWith("it")).sort((a, b) => naturalness(b) - naturalness(a));
+    onChange();
+  };
+  update();
+  synth.addEventListener("voiceschanged", update);
+  return () => synth.removeEventListener("voiceschanged", update);
+}
+
+const VOICE_KEY = "bandi-chat-voice";
+function savedVoice() {
+  try {
+    return localStorage.getItem(VOICE_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 const noSubscribe = () => () => {};
@@ -51,6 +77,9 @@ export function Chat() {
   const canSpeak = useBrowserSupport(() => "speechSynthesis" in window);
   const [listening, setListening] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
+  const voices = useSyncExternalStore(canSpeak ? subscribeVoices : noSubscribe, () => italianVoices, () => NO_VOICES);
+  const [voiceURI, setVoiceURI] = useState(() => (typeof window === "undefined" ? "" : savedVoice()));
+  const voice = voices.find((v) => v.voiceURI === voiceURI) ?? voices[0];
   const recognition = useRef<Recognition | null>(null);
   const baseInput = useRef("");
   const heardSomething = useRef(false);
@@ -133,7 +162,7 @@ export function Chat() {
         setInput(text);
       } else {
         setMessages([...next, { role: "assistant", content: result.answer }]);
-        if (readAloud && canSpeak) speak(result.answer);
+        if (readAloud && canSpeak) speak(result.answer, voice);
       }
     } catch {
       setError("Connessione non riuscita. Riprova.");
@@ -158,7 +187,7 @@ export function Chat() {
             <div className="chat-meta muted small">
               {m.role === "user" ? "Tu" : "Assistente"}
               {m.role === "assistant" && canSpeak && (
-                <button type="button" className="btn ghost small" onClick={() => speak(m.content)} aria-label="Leggi questa risposta ad alta voce">
+                <button type="button" className="btn ghost small" onClick={() => speak(m.content, voice)} aria-label="Leggi questa risposta ad alta voce">
                   🔊 Ascolta
                 </button>
               )}
@@ -212,6 +241,27 @@ export function Chat() {
           />{" "}
           Leggi le risposte ad alta voce
         </label>
+      )}
+      {canSpeak && voices.length > 1 && (
+        <div className="chat-option small muted">
+          <label htmlFor="chat-voice">Voce</label>
+          <select
+            id="chat-voice"
+            value={voice?.voiceURI ?? ""}
+            onChange={(e) => {
+              setVoiceURI(e.target.value);
+              try {
+                localStorage.setItem(VOICE_KEY, e.target.value);
+              } catch {}
+              const chosen = voices.find((v) => v.voiceURI === e.target.value);
+              speak("Ciao, sono la voce dell'assistente.", chosen);
+            }}
+          >
+            {voices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>{v.name.replace(/^Microsoft /, "")}</option>
+            ))}
+          </select>
+        </div>
       )}
     </section>
   );
