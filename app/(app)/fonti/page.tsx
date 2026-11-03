@@ -105,7 +105,9 @@ export default async function SourcesPage() {
 05:30 UTC  /api/cron/sync-source/sviluppo-toscana
 05:45 UTC  /api/cron/sync-source/camcom-fi
 06:00 UTC  /api/cron/sync-source/camcom-bg
-06:15 UTC  /api/cron/sync-source/contributi-europa`}</div>
+06:15 UTC  /api/cron/sync-source/contributi-europa
+07:00 UTC  /api/cron/sync-source/camcom-tno
+07:15 UTC  /api/cron/sync-source/camcom-ptpo`}</div>
       </section>
 
       <div style={{ height: 18 }} />
