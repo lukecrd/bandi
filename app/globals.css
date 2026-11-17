@@ -252,13 +252,6 @@ td.empty { text-align: center; padding: 48px 16px; }
   padding: 10px 12px;
 }
 
-.login-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--bg);
-}
 .login-card {
   width: min(420px, 100%);
   background: var(--panel);
@@ -268,7 +261,46 @@ td.empty { text-align: center; padding: 48px 16px; }
   border-radius: 8px;
   padding: 32px 32px 28px 36px;
 }
-.login-card h1 { margin-top: 0; font-size: 32px; letter-spacing: -.02em; }
+.login-card .muted { margin-top: 0; }
+
+/* Login: mappa a puntini dietro, scene che cambiano allo scroll. */
+.lp { position: relative; background: var(--bg); }
+.italy-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.lp-grid { position: relative; display: grid; grid-template-columns: 480px 1fr; }
+.lp-side { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: 24px 0 24px 32px; }
+.lp-hero h1 { margin: 6px 0 4px; font-size: 40px; letter-spacing: -.02em; }
+.lp-kicker { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.lp-stat { margin: 0 0 20px; color: var(--muted); }
+.lp-stat strong { color: var(--margin); }
+.lp-scene { min-height: 100svh; display: flex; align-items: flex-end; padding: 0 168px 48px 20px; }
+.lp-caption { max-width: 420px; }
+.lp-caption h2 { margin: 6px 0 4px; }
+.lp-caption p:last-of-type { margin: 0; color: var(--muted); }
+.lp-cta { display: inline-block; margin-top: 12px; color: var(--brand); font-weight: 600; }
+.lp-nav { position: fixed; right: 28px; top: 50%; transform: translateY(-50%); display: grid; gap: 4px; justify-items: end; }
+.lp-nav button {
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 0;
+  border: 0; background: none; color: var(--muted);
+  font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+}
+.lp-nav button::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background-color .3s, transform .3s; }
+.lp-nav button:hover, .lp-nav button.is-active { color: var(--text); }
+.lp-nav button.is-active::after { background: var(--margin); transform: scale(1.4); }
+
+@media (min-width: 1024px) and (min-height: 640px) {
+  .lp-drawn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 1023.9px), (max-height: 639.9px) {
+  .italy-canvas { opacity: .35; }
+  .lp-grid { grid-template-columns: 1fr; }
+  .lp-side { position: static; height: auto; justify-content: center; padding: 32px 16px; }
+  .lp-scene { min-height: 0; padding: 32px 16px; justify-content: center; }
+  .lp-caption { width: min(420px, 100%); }
+  .lp-nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-nav button::after { transition: none; }
+}
 
 .source-card {
   display: grid;

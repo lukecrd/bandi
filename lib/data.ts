@@ -318,6 +318,23 @@ export async function getGrantRegions() {
   return rows.map((row) => String(row.region));
 }
 
+export async function getOpenGrantsByRegion() {
+  const sql = db();
+  const [byRegion, total] = await Promise.all([
+    sql.query(
+      `SELECT r AS region, count(*)::int AS n
+       FROM grants, unnest(regions) AS r
+       WHERE status IN ('Aperto', 'In arrivo')
+       GROUP BY r`
+    ),
+    sql.query(`SELECT count(*)::int AS n FROM grants WHERE status IN ('Aperto', 'In arrivo')`),
+  ]);
+  return {
+    byRegion: byRegion.map((row) => ({ region: String(row.region), n: Number(row.n) })),
+    total: Number(total[0]?.n ?? 0),
+  };
+}
+
 export async function getGrant(id: string) {
   const sql = db();
   const rows = await sql.query(`SELECT * FROM grants WHERE id = $1 LIMIT 1`, [id]);
