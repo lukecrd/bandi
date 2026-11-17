@@ -12,6 +12,7 @@ export const SYNC_SOURCES = {
   "camcom-rm": "CCIAA Roma",
   "bandi-camere": "BandiCamereDiCommercio.it",
   "contributi-europa": "Contributi Europa",
+  bandintelligence: "BandIntelligence",
 } as const;
 
 export type SyncSource = keyof typeof SYNC_SOURCES;

@@ -4,6 +4,7 @@ import { CHAMBERS, fetchCamCom } from "@/lib/sources/camcom";
 import { fetchSviluppoToscana } from "@/lib/sources/sviluppo-toscana";
 import { fetchContributiEuropa } from "@/lib/sources/contributi-europa";
 import { fetchBandiCamere } from "@/lib/sources/bandi-camere";
+import { fetchBandIntelligence } from "@/lib/sources/bandintelligence";
 import {
   closeExpiredGrants,
   finishSyncRun,
@@ -19,6 +20,7 @@ function fetchSource(source: SyncSource) {
     case "sviluppo-toscana": return fetchSviluppoToscana();
     case "contributi-europa": return fetchContributiEuropa();
     case "bandi-camere": return fetchBandiCamere();
+    case "bandintelligence": return fetchBandIntelligence();
     default: return fetchCamCom(CHAMBERS[source]);
   }
 }

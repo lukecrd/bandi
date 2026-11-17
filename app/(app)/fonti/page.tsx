@@ -88,6 +88,16 @@ export default async function SourcesPage() {
           </p>
           <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.contributieuropa.com/tuttibandi/">Apri il portale</a>
         </section>
+
+        <section className="card source-card">
+          <span className="badge open">Aggregatore</span>
+          <strong>BandIntelligence</strong>
+          <p className="muted">
+            API JSON pubblica con i bandi aperti e in arrivo. Teniamo solo quelli non presi da incentivi.gov.it,
+            che sincronizziamo già direttamente. Riuso consentito citando la fonte con il link alla scheda.
+          </p>
+          <a className="btn secondary" target="_blank" rel="noreferrer" href="https://bandintelligence.it/dati-aperti">Dati aperti</a>
+        </section>
       </div>
 
       <div style={{ height: 18 }} />
@@ -109,7 +119,8 @@ export default async function SourcesPage() {
 07:00 UTC  /api/cron/sync-source/camcom-tno
 07:15 UTC  /api/cron/sync-source/camcom-ptpo
 07:30 UTC  /api/cron/sync-source/bandi-camere
-07:45 UTC  /api/cron/sync-source/camcom-rm`}</div>
+07:45 UTC  /api/cron/sync-source/camcom-rm
+08:00 UTC  /api/cron/sync-source/bandintelligence`}</div>
       </section>
 
       <div style={{ height: 18 }} />

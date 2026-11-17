@@ -49,6 +49,10 @@
       "schedule": "45 7 * * *"
     },
     {
+      "path": "/api/cron/sync-source/bandintelligence",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/sync-teamleader",
       "schedule": "0 3 * * *"
     }
