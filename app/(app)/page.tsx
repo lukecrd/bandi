@@ -186,6 +186,27 @@ export default async function Dashboard({
         </div>
       </div>
 
+      <section className="card region-card" aria-labelledby="regioni-title">
+        <div className="card-title">
+          <div>
+            <h2 id="regioni-title">Bandi per regione</h2>
+            <p className="muted small">Bandi aperti o in arrivo con almeno un&apos;area regionale; i nazionali non sono contati.</p>
+          </div>
+          <Link href="/bandi">Tutti i bandi</Link>
+        </div>
+        <div className="region-map">
+          <ItalyCanvas counts={regionCounts} />
+          <ol className="region-list">
+            {regions.map((r) => (
+              <li key={r.name}>
+                <Link href={`/bandi?region=${encodeURIComponent(r.filter)}`}>{r.name}</Link>
+                <strong>{r.n}</strong>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
       <div className="grid kpis">
         <Kpi label="Clienti" value={stats.customers} />
         <Kpi label="Bandi aperti" value={stats.open_grants} />
@@ -309,30 +330,10 @@ export default async function Dashboard({
         </section>
       </div>
 
-      <section className="card" aria-labelledby="regioni-title">
-        <div className="card-title">
-          <div>
-            <h2 id="regioni-title">Bandi per regione</h2>
-            <p className="muted small">Bandi aperti o in arrivo con almeno un&apos;area regionale; i nazionali non sono contati.</p>
-          </div>
-          <Link href="/bandi">Tutti i bandi</Link>
-        </div>
-        <div className="region-map">
-          <ItalyCanvas counts={regionCounts} />
-          <ol className="region-list">
-            {regions.map((r) => (
-              <li key={r.name}>
-                <Link href={`/bandi?region=${encodeURIComponent(r.filter)}`}>{r.name}</Link>
-                <strong>{r.n}</strong>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
       <section className="card">
         <div className="card-title">
-          <h2>Sincronizzazioni</h2>          <Link href="/fonti">Dettagli</Link>
+          <h2>Sincronizzazioni</h2>
+          <Link href="/fonti">Dettagli</Link>
         </div>
         <div className="grid">
           {syncs.slice(0, 6).map((run) => (
