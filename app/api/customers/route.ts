@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createCustomer, getCustomers } from "@/lib/data";
-import type { CustomerInput } from "@/lib/types";
+import { createCustomer, getCustomers, updateCustomerAnagrafica } from "@/lib/data";
+import { AnagraficaSchema } from "@/lib/anagrafica";
+import type { Anagrafica, CustomerInput } from "@/lib/types";
 
 function nullableNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return null;
@@ -48,7 +49,18 @@ export async function POST(request: Request) {
       note: body.note ? String(body.note).trim() : null,
     };
 
-    const customer = await createCustomer(input);
+    // Validata prima di creare il cliente: un'anagrafica non valida non deve lasciare un cliente a metà.
+    let anagrafica: Anagrafica | undefined;
+    if (body.anagrafica !== undefined) {
+      const parsed = AnagraficaSchema.safeParse(body.anagrafica);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Anagrafica non valida." }, { status: 400 });
+      }
+      anagrafica = parsed.data;
+    }
+
+    const created = await createCustomer(input);
+    const customer = anagrafica ? await updateCustomerAnagrafica(created.id, anagrafica) : created;
     return NextResponse.json(customer, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Errore";

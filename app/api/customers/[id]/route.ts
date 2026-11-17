@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteCustomer, updateCustomer, updateCustomerAnagrafica } from "@/lib/data";
+import { deleteCustomer, getCustomer, updateCustomer, updateCustomerAnagrafica } from "@/lib/data";
 import { AnagraficaSchema } from "@/lib/anagrafica";
 import type { Anagrafica, CustomerInput } from "@/lib/types";
 
@@ -28,6 +28,16 @@ export async function PATCH(
         return NextResponse.json({ error: "Anagrafica non valida." }, { status: 400 });
       }
       anagrafica = parsed.data;
+    }
+    // Il questionario manda solo alcuni campi (es. partita IVA): vanno uniti all'anagrafica esistente, non sostituirla.
+    if (body.anagrafica_merge !== undefined) {
+      const parsed = AnagraficaSchema.safeParse(body.anagrafica_merge);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Anagrafica non valida." }, { status: 400 });
+      }
+      const current = await getCustomer(id);
+      if (!current) return NextResponse.json({ error: "Cliente non trovato." }, { status: 404 });
+      anagrafica = { ...current.anagrafica, ...anagrafica, ...parsed.data };
     }
 
     // body with only `anagrafica`: update just that

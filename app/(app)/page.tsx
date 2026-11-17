@@ -2,6 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Kpi } from "@/components/kpi";
 import { ItalyCanvas } from "@/components/italy-canvas";
+import { Questionario, type QuestionarioCliente } from "@/components/questionario";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getActiveGrants,
@@ -173,6 +174,19 @@ export default async function Dashboard({
     : [];
   const groups = profiles(interested);
   const shown = work.slice(0, MAX_GRANTS);
+  const questionarioClienti: QuestionarioCliente[] = customers
+    .map((c) => ({
+      id: c.id, external_id: c.external_id, ragione_sociale: c.ragione_sociale,
+      partita_iva: c.anagrafica?.partita_iva ?? "", regione: c.regione, provincia: c.provincia, ateco: c.ateco,
+      dimensione: c.dimensione, dipendenti: c.dipendenti, fatturato_eur: c.fatturato_eur,
+      investimento_previsto_eur: c.investimento_previsto_eur, digitale: c.digitale, green: c.green,
+      ricerca_sviluppo: c.ricerca_sviluppo, cloud_cyber: c.cloud_cyber, investimenti_beni: c.investimenti_beni,
+      export: c.export, formazione: c.formazione, note: c.note,
+    }))
+    .sort((a, b) => a.ragione_sociale.localeCompare(b.ragione_sociale, "it"));
+  // Profilo incompleto = mancano i dati che pesano di più nel punteggio.
+  const incomplete = customers.filter((c) => !c.regione || !c.ateco || (c.dipendenti === null && c.fatturato_eur === null)).length;
+
   // Un bando aperto via ?bando= può non essere tra i primi: lo aggiungiamo in coda.
   if (selected && !shown.some((w) => w.grant.id === selected.id)) {
     const row = all.find((w) => w.grant.id === selected.id);
@@ -191,6 +205,18 @@ export default async function Dashboard({
           <Link className="btn" href="/clienti?nuovo=1">Nuovo cliente</Link>
         </div>
       </div>
+
+      {/* Chiuso di default: si apre quando serve, senza spingere giù il lavoro del giorno. */}
+      <details className="card questionario-card" id="questionario">
+        <summary>
+          <span className="questionario-title">Questionario: trova i bandi per un&apos;azienda</span>
+          <span className="muted small">
+            Pochi dati (sede, dimensione, ATECO, progetti) bastano a rendere il matching affidabile.
+            {incomplete > 0 && ` ${incomplete} clienti su ${customers.length} hanno ancora il profilo incompleto.`}
+          </span>
+        </summary>
+        <Questionario clienti={questionarioClienti} />
+      </details>
 
       <section className="card region-card" aria-labelledby="regioni-title">
         <div className="card-title">
