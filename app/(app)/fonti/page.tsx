@@ -34,7 +34,7 @@ export default async function SourcesPage() {
             Catalogo nazionale degli incentivi. Il connettore normalizza territorio,
             dimensione, date, forma di sostegno e descrizione.
           </p>
-          <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.incentivi.gov.it/">Apri il portale</a>
+          <a className="btn secondary" target="_blank" rel="noreferrer" href="https://www.incentivitalia.gov.it/">Apri il portale</a>
         </section>
 
         <section className="card source-card">

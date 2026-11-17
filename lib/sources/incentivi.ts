@@ -3,15 +3,9 @@ import type { Grant } from "@/lib/types";
 
 // Il sito blocca le connessioni da fuori Europa (ETIMEDOUT dagli USA): per questo in vercel.json
 // le route che lo sincronizzano girano in fra1.
-const BASE_URL = "https://www.incentivi.gov.it/solr/coredrupal/select";
-// Solo i campi usati da mapDoc: con fl=* ogni pagina pesa ~3 MB e il server chiude spesso la connessione a metà.
-const FIELDS = [
-  "id", "ss_id", "ss_search_api_id", "ss_title", "tum_X3b_it_title_ft", "title", "zs_body",
-  "zs_field_subject_grant", "ss_field_subject_grant", "zs_field_open_date", "zs_field_close_date",
-  "zs_field_cost_min", "zs_field_cost_max", "zs_field_regions_value", "zs_field_dimensions_value",
-  "zs_field_scopes_value", "zs_field_activity_sector_value", "zs_field_support_form_value",
-  "zs_field_budget", "zs_field_resources", "zs_field_link",
-].join(",");
+// Da novembre 2026 incentivi.gov.it rimanda (302) a incentivitalia.gov.it e la vecchia API Solr non esiste più:
+// si legge l'open data ufficiale, un unico JSON (~30 MB, ~6000 bandi).
+const OPEN_DATA_URL = "https://www.incentivitalia.gov.it/open-data/incentivi/OpenData_Incentivi.json";
 
 function first(value: unknown): unknown {
   return Array.isArray(value) ? value[0] : value;
@@ -28,6 +22,8 @@ function text(doc: Record<string, unknown>, ...fields: string[]) {
 }
 
 function numberValue(doc: Record<string, unknown>, field: string) {
+  const value = first(doc[field]);
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const raw = text(doc, field);
   if (!raw) return null;
   const normalized = raw.replace(/\./g, "").replace(",", ".");
@@ -80,36 +76,30 @@ function isNational(grantor: string | null) {
 }
 
 function mapDoc(doc: Record<string, unknown>): Grant {
-  const searchId = text(doc, "ss_search_api_id");
-  const rawId =
-    searchId?.includes("node/")
-      ? searchId.split("node/").pop()!
-      : text(doc, "id", "ss_id") ?? crypto.randomUUID();
+  const rawId = text(doc, "idBando") ?? crypto.randomUUID();
 
-  const grantor = text(doc, "zs_field_subject_grant", "ss_field_subject_grant");
-  const opening = dateValue(doc, "zs_field_open_date");
-  const deadline = dateValue(doc, "zs_field_close_date");
-  const minRaw = numberValue(doc, "zs_field_cost_min");
-  const maxRaw = numberValue(doc, "zs_field_cost_max");
+  const grantor = text(doc, "Soggetto_Concedente", "Amministrazione_responsabile");
+  const opening = dateValue(doc, "Data_apertura");
+  const deadline = dateValue(doc, "Data_chiusura");
+  const minRaw = numberValue(doc, "Spesa_Ammessa_Min");
+  const maxRaw = numberValue(doc, "Spesa_Ammessa_Max");
   const min = minRaw !== null && maxRaw !== null && minRaw > maxRaw ? maxRaw : minRaw;
   const max = minRaw !== null && maxRaw !== null && minRaw > maxRaw ? minRaw : maxRaw;
 
   const regions = isNational(grantor)
     ? ["ITALIA"]
-    : fieldList(doc, "zs_field_regions_value");
+    : fieldList(doc, "Regioni");
 
-  const sizes = fieldList(doc, "zs_field_dimensions_value");
+  const sizes = fieldList(doc, "Dimensione_beneficiari");
   const topics = [
-    ...fieldList(doc, "zs_field_scopes_value"),
-    ...fieldList(doc, "zs_field_activity_sector_value"),
+    ...fieldList(doc, "Obiettivo_Finalita"),
+    ...fieldList(doc, "Settore_Attivita"),
     ...sizes,
   ];
 
   return {
     id: `IGOV-${rawId}`,
-    title:
-      text(doc, "tum_X3b_it_title_ft", "ss_title", "title") ??
-      "Incentivo senza titolo",
+    title: text(doc, "Titolo") ?? "Incentivo senza titolo",
     ente: grantor,
     level: isNational(grantor) ? "Nazionale" : "Regionale/locale",
     status: inferStatus(opening, deadline),
@@ -121,13 +111,13 @@ function mapDoc(doc: Record<string, unknown>): Grant {
     invest_max_eur: max,
     opening_date: opening,
     deadline,
-    aid_type: text(doc, "zs_field_support_form_value"),
-    budget: text(doc, "zs_field_budget", "zs_field_resources"),
-    url: text(doc, "zs_field_link"),
+    aid_type: fieldList(doc, "Forma_agevolazione").join(", ") || null,
+    budget: text(doc, "Stanziamento_incentivo"),
+    url: text(doc, "Link_istituzionale"),
     source: "Incentivi.gov.it",
     source_updated_at: null,
     requirements:
-      text(doc, "zs_body")?.slice(0, 6000) ??
+      text(doc, "Descrizione")?.slice(0, 6000) ??
       "Verificare i requisiti completi sulla fonte ufficiale.",
     raw: doc,
     synced_at: new Date().toISOString(),
@@ -154,48 +144,22 @@ function getText(url: URL) {
   });
 }
 
-async function fetchPage(start: number, rows: number) {
-  const url = new URL(BASE_URL);
-  url.searchParams.set("q", "*:*");
-  url.searchParams.set("q.op", "OR");
-  url.searchParams.set("fq", "index_id:incentivi");
-  url.searchParams.set("fl", FIELDS);
-  url.searchParams.set("rows", String(rows));
-  url.searchParams.set("start", String(start));
-  url.searchParams.set("wt", "json");
-
-  // il server a volte tronca la risposta ("fetch failed"): riprova la stessa pagina
-  let json;
+export async function fetchIncentiviGov() {
+  // il server a volte tronca la risposta ("fetch failed"): riprova
+  let docs: unknown;
   for (let attempt = 1; ; attempt++) {
     try {
-      json = JSON.parse(await getText(url));
+      docs = JSON.parse((await getText(new URL(OPEN_DATA_URL))).replace(/^﻿/, ""));
       break;
     } catch (error) {
       if (attempt >= 3) {
-        throw new Error(`Incentivi.gov.it, pagina da ${start}: ${error instanceof Error ? error.message : error}`);
+        throw new Error(`Incentivi.gov.it, open data: ${error instanceof Error ? error.message : error}`);
       }
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
     }
   }
-  return {
-    docs: (json?.response?.docs ?? []) as Record<string, unknown>[],
-    total: Number(json?.response?.numFound ?? 0),
-  };
-}
+  if (!Array.isArray(docs)) throw new Error("Incentivi.gov.it, open data: formato inatteso");
 
-export async function fetchIncentiviGov() {
-  const pageRows = Math.max(1, Number(process.env.INCENTIVI_PAGE_ROWS ?? 200));
-  const maxPages = Math.max(1, Number(process.env.INCENTIVI_MAX_PAGES ?? 35));
-
-  const firstPage = await fetchPage(0, pageRows);
-  const pages = Math.min(Math.ceil(firstPage.total / pageRows) || 1, maxPages);
-  const allDocs = [...firstPage.docs];
-
-  for (let page = 1; page < pages; page++) {
-    const result = await fetchPage(page * pageRows, pageRows);
-    allDocs.push(...result.docs);
-  }
-
-  const grants = allDocs.map(mapDoc);
+  const grants = (docs as Record<string, unknown>[]).map(mapDoc);
   return grants.filter((g) => g.status === "Aperto" || g.status === "In arrivo");
 }
