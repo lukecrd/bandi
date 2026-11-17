@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Kpi } from "@/components/kpi";
+import { ItalyCanvas } from "@/components/italy-canvas";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getActiveGrants,
   getCustomers,
   getDashboardStats,
   getGrant,
+  getOpenGrantsByRegion,
   getRecentSyncRuns,
   MATCHES_TAG,
 } from "@/lib/data";
@@ -143,12 +145,14 @@ export default async function Dashboard({
   const params = await searchParams;
   const bandoId = typeof params.bando === "string" ? params.bando : "";
   const min = minMatchScore();
-  const [stats, customers, syncs, counts] = await Promise.all([
+  const [stats, customers, syncs, counts, regions] = await Promise.all([
     getDashboardStats(),
     getCustomers(),
     getRecentSyncRuns(),
     getMatchCounts(min),
+    getOpenGrantsByRegion(),
   ]);
+  const regionCounts = Object.fromEntries(regions.map((r) => [r.name, r.n]));
 
   // Un bando compatibile con tutti i clienti non aiuta a scegliere chi chiamare: resta fuori dall'elenco.
   const all = workList(counts.rows);
@@ -305,10 +309,30 @@ export default async function Dashboard({
         </section>
       </div>
 
+      <section className="card" aria-labelledby="regioni-title">
+        <div className="card-title">
+          <div>
+            <h2 id="regioni-title">Bandi per regione</h2>
+            <p className="muted small">Bandi aperti o in arrivo con almeno un&apos;area regionale; i nazionali non sono contati.</p>
+          </div>
+          <Link href="/bandi">Tutti i bandi</Link>
+        </div>
+        <div className="region-map">
+          <ItalyCanvas counts={regionCounts} />
+          <ol className="region-list">
+            {regions.map((r) => (
+              <li key={r.name}>
+                <Link href={`/bandi?region=${encodeURIComponent(r.filter)}`}>{r.name}</Link>
+                <strong>{r.n}</strong>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
       <section className="card">
         <div className="card-title">
-          <h2>Sincronizzazioni</h2>
-          <Link href="/fonti">Dettagli</Link>
+          <h2>Sincronizzazioni</h2>          <Link href="/fonti">Dettagli</Link>
         </div>
         <div className="grid">
           {syncs.slice(0, 6).map((run) => (

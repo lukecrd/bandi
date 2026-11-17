@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
 import type { CustomerFile } from "@/lib/allegati";
+import { ITALY_REGIONS } from "@/lib/italy-points";
 
 // Tag della cache dei punteggi bando-cliente: va invalidato a ogni scrittura su bandi o clienti.
 export const MATCHES_TAG = "matches";
@@ -318,21 +319,32 @@ export async function getGrantRegions() {
   return rows.map((row) => String(row.region));
 }
 
+// Nel DB convivono varianti come "Valle d'Aosta/Vallée d'Aoste" e "Friuli Venezia Giulia".
+const regionKey = (name: string) => name.split("/")[0].toLowerCase().replace(/-/g, " ").trim();
+
+/**
+ * Bandi aperti o in arrivo per regione, con i nomi di ITALY_REGIONS.
+ * `filter` è la variante più frequente nel DB, da usare nel filtro esatto di /bandi?region=.
+ */
 export async function getOpenGrantsByRegion() {
   const sql = db();
-  const [byRegion, total] = await Promise.all([
-    sql.query(
-      `SELECT r AS region, count(*)::int AS n
-       FROM grants, unnest(regions) AS r
-       WHERE status IN ('Aperto', 'In arrivo')
-       GROUP BY r`
-    ),
-    sql.query(`SELECT count(*)::int AS n FROM grants WHERE status IN ('Aperto', 'In arrivo')`),
-  ]);
-  return {
-    byRegion: byRegion.map((row) => ({ region: String(row.region), n: Number(row.n) })),
-    total: Number(total[0]?.n ?? 0),
-  };
+  const rows = await sql.query(
+    `SELECT r AS region, count(*)::int AS n
+     FROM grants, unnest(regions) AS r
+     WHERE status IN ('Aperto', 'In arrivo')
+     GROUP BY r
+     ORDER BY n DESC`
+  );
+  const names = new Map(ITALY_REGIONS.map((r) => [regionKey(r.name), r.name]));
+  const out = new Map<string, { name: string; n: number; filter: string }>();
+  for (const row of rows) {
+    const name = names.get(regionKey(String(row.region)));
+    if (!name) continue;
+    const prev = out.get(name);
+    // Righe ordinate per n: la prima variante incontrata è la più frequente.
+    out.set(name, { name, n: (prev?.n ?? 0) + Number(row.n), filter: prev?.filter ?? String(row.region) });
+  }
+  return [...out.values()].sort((a, b) => b.n - a.n);
 }
 
 export async function getGrant(id: string) {
