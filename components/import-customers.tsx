@@ -31,8 +31,8 @@ export function ImportCustomers() {
   return (
     <form onSubmit={submit} className="grid">
       <div className="field">
-        <label>File clienti (.xlsx o .csv)</label>
-        <input name="file" type="file" accept=".xlsx,.csv" required />
+        <label htmlFor="f-import-file">File clienti (.xlsx o .csv)</label>
+        <input id="f-import-file" name="file" type="file" accept=".xlsx,.csv" required />
       </div>
       <button className="btn secondary" disabled={busy}>
         {busy ? "Importazione…" : "Importa clienti"}

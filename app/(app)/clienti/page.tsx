@@ -12,6 +12,8 @@ export default async function CustomersPage({
 }) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
+  // ?nuovo=1 arriva dal pulsante "Nuovo cliente" della dashboard: apre direttamente il modulo.
+  const nuovo = params.nuovo === "1";
   const customers = await getCustomers(q);
 
   return (
@@ -23,24 +25,26 @@ export default async function CustomersPage({
         </div>
       </div>
 
-      <div className="grid two">
-        <section className="card">
-          <h2>Nuovo cliente</h2>
-          <CustomerForm />
-        </section>
-        <section className="card">
-          <h2>Importa da Excel / CSV</h2>
-          <ImportCustomers />
-          <div className="notice" style={{ marginTop: 14 }}>
-            Puoi riutilizzare il foglio CLIENTI del modello Excel: l'ID cliente viene usato per aggiornare record già esistenti.
-          </div>
-        </section>
-      </div>
-
-      <div style={{ height: 18 }} />
+      {/* Chiuso di default: l'uso quotidiano è cercare e aprire un cliente, non crearne uno. */}
+      <details className="add-customers" open={nuovo}>
+        <summary>Aggiungi o importa clienti</summary>
+        <div className="grid two">
+          <section className="card">
+            <h2>Nuovo cliente</h2>
+            <CustomerForm />
+          </section>
+          <section className="card">
+            <h2>Importa da Excel / CSV</h2>
+            <ImportCustomers />
+            <div className="notice" style={{ marginTop: 14 }}>
+              Puoi riutilizzare il foglio CLIENTI del modello Excel: l'ID cliente viene usato per aggiornare record già esistenti.
+            </div>
+          </section>
+        </div>
+      </details>
 
       <form className="actions" method="get">
-        <input className="search" style={{ maxWidth: 420 }} name="q" defaultValue={q} placeholder="Cerca cliente, regione, ATECO…" />
+        <input className="search" style={{ maxWidth: 420 }} name="q" defaultValue={q} placeholder="Cerca cliente, regione, ATECO…" aria-label="Cerca clienti" />
         <button className="btn secondary">Cerca</button>
       </form>
 
@@ -63,7 +67,7 @@ export default async function CustomersPage({
             {customers.map((customer) => (
               <tr key={customer.id}>
                 <td className="mono">{customer.external_id}</td>
-                <td><strong>{customer.ragione_sociale}</strong></td>
+                <td className="name-cell"><strong>{customer.ragione_sociale}</strong></td>
                 <td>{customer.regione || "—"}</td>
                 <td>{customer.ateco || "—"}</td>
                 <td>{customer.dimensione}</td>

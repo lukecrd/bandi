@@ -102,13 +102,13 @@ export default async function GrantsPage({
               <th>Territorio</th>
               <th>Fonte</th>
               <th>Scadenza</th>
-              <th>Temi</th>
             </tr>
           </thead>
           <tbody>
             {grants.map((grant) => {
               // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
               const match = customer && scoreGrant(customer, grant);
+              const places = territory(grant.regions);
               return (
               <tr key={grant.id}>
                 {match && (
@@ -126,20 +126,22 @@ export default async function GrantsPage({
                     ? <a className="title-link" href={grant.url} target="_blank" rel="noreferrer">{grant.title} ↗</a>
                     : <strong>{grant.title}</strong>}
                   <div className="muted small">{grant.ente || "—"}</div>
+                  {grant.topics.length > 0 && (
+                    <div className="muted small">Temi: {grant.topics.slice(0, 4).join(" · ")}</div>
+                  )}
                 </td>
                 <td>
                   <div className="chips">
-                    {territory(grant.regions).slice(0, 3).map((r) => <span key={r} className="chip">{r}</span>)}
-                    {territory(grant.regions).length > 3 && <span className="chip muted">+{grant.regions.length - 3}</span>}
+                    {places.slice(0, 3).map((r) => <span key={r} className="chip">{r}</span>)}
+                    {places.length > 3 && <span className="chip muted" title={places.slice(3).join(", ")}>+{places.length - 3}</span>}
                   </div>
                 </td>
                 <td className="small">{grant.source}</td>
                 <td className="nowrap">{date(grant.deadline)}</td>
-                <td className="small muted">{grant.topics.slice(0, 4).join(" · ") || "—"}</td>
               </tr>
               );
             })}
-            {!grants.length && <tr><td colSpan={customer ? 7 : 6} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
+            {!grants.length && <tr><td colSpan={customer ? 6 : 5} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -23,8 +23,9 @@ export default async function SourcesPage() {
           <h1>Fonti & sincronizzazione</h1>
           <p>Aggiornamento del catalogo italiano ed europeo.</p>
         </div>
-        <SyncButtons />
       </div>
+
+      <SyncButtons />
 
       <div className="grid two">
         <section className="card source-card">

@@ -188,7 +188,7 @@ export default async function Dashboard({
         </div>
         <div className="actions">
           <Link className="btn secondary" href="/fonti">Aggiorna fonti</Link>
-          <Link className="btn" href="/clienti">Nuovo cliente</Link>
+          <Link className="btn" href="/clienti?nuovo=1">Nuovo cliente</Link>
         </div>
       </div>
 
