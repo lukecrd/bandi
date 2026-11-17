@@ -59,6 +59,7 @@ function DeadlineStamp({ grant }: { grant: GrantSummary }) {
     return <span className="badge forthcoming stamp">apre {shortDate(grant.opening_date)}</span>;
   }
   if (days === null) return <span className="badge stamp">a sportello</span>;
+  if (days < 0) return <span className="badge stamp expired" title={`Scaduto il ${formatDate(grant.deadline)}`}>scaduto</span>;
   const text = days === 0 ? "scade oggi" : days === 1 ? "domani" : days <= 30 ? `${days} gg` : shortDate(grant.deadline!);
   const tone = days <= 7 ? "low" : days <= 30 ? "medium" : "";
   return (
@@ -97,9 +98,14 @@ const getMatchCounts = unstable_cache(
 
 type WorkRow = Awaited<ReturnType<typeof getMatchCounts>>["rows"][number];
 
-/** Prima i bandi più urgenti, poi quelli con più clienti: ordinato a ogni richiesta perché i giorni cambiano. */
+/**
+ * Prima i bandi più urgenti, poi quelli con più clienti: ordinato a ogni richiesta perché i giorni cambiano.
+ * I conteggi arrivano dalla cache, che può essere più vecchia delle scadenze: i bandi già scaduti si tolgono qui.
+ */
 function workList(rows: WorkRow[]) {
-  const keyed = rows.map((row) => ({ row, urgency: urgency(row.grant), days: daysLeft(row.grant.deadline) ?? Infinity }));
+  const keyed = rows
+    .map((row) => ({ row, urgency: urgency(row.grant), days: daysLeft(row.grant.deadline) ?? Infinity }))
+    .filter((k) => k.days >= 0);
   return keyed
     .sort((a, b) => a.urgency - b.urgency || b.row.count - a.row.count || a.days - b.days)
     .map((k) => k.row);
@@ -199,7 +205,7 @@ export default async function Dashboard({
           <ol className="region-list">
             {regions.map((r) => (
               <li key={r.name}>
-                <Link href={`/bandi?region=${encodeURIComponent(r.filter)}`}>{r.name}</Link>
+                <Link href={`/bandi?region=${encodeURIComponent(r.filter)}`} title={r.name}>{r.name}</Link>
                 <strong>{r.n}</strong>
               </li>
             ))}

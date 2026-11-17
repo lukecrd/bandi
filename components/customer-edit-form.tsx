@@ -51,28 +51,28 @@ export function CustomerEditForm({ customer }: { customer: Customer }) {
   return (
     <form onSubmit={submit} className="form-grid">
       <div className="field">
-        <label>ID cliente</label>
-        <input name="external_id" defaultValue={customer.external_id} required />
+        <label htmlFor="f-external_id">ID cliente</label>
+        <input id="f-external_id" name="external_id" defaultValue={customer.external_id} required />
       </div>
       <div className="field">
-        <label>Ragione sociale</label>
-        <input name="ragione_sociale" defaultValue={customer.ragione_sociale} required />
+        <label htmlFor="f-ragione_sociale">Ragione sociale</label>
+        <input id="f-ragione_sociale" name="ragione_sociale" defaultValue={customer.ragione_sociale} required />
       </div>
       <div className="field">
-        <label>Regione</label>
-        <input name="regione" defaultValue={customer.regione} required />
+        <label htmlFor="f-regione">Regione</label>
+        <input id="f-regione" name="regione" defaultValue={customer.regione} required />
       </div>
       <div className="field">
-        <label>Provincia</label>
-        <input name="provincia" defaultValue={customer.provincia ?? ""} />
+        <label htmlFor="f-provincia">Provincia</label>
+        <input id="f-provincia" name="provincia" defaultValue={customer.provincia ?? ""} />
       </div>
       <div className="field">
-        <label>ATECO</label>
-        <input name="ateco" defaultValue={customer.ateco ?? ""} />
+        <label htmlFor="f-ateco">ATECO</label>
+        <input id="f-ateco" name="ateco" defaultValue={customer.ateco ?? ""} />
       </div>
       <div className="field">
-        <label>Dimensione</label>
-        <select name="dimensione" defaultValue={customer.dimensione}>
+        <label htmlFor="f-dimensione">Dimensione</label>
+        <select id="f-dimensione" name="dimensione" defaultValue={customer.dimensione}>
           <option>Micro</option>
           <option>Piccola</option>
           <option>Media</option>
@@ -81,16 +81,16 @@ export function CustomerEditForm({ customer }: { customer: Customer }) {
         </select>
       </div>
       <div className="field">
-        <label>Dipendenti</label>
-        <input name="dipendenti" type="number" min="0" defaultValue={customer.dipendenti ?? ""} />
+        <label htmlFor="f-dipendenti">Dipendenti</label>
+        <input id="f-dipendenti" name="dipendenti" type="number" min="0" defaultValue={customer.dipendenti ?? ""} />
       </div>
       <div className="field">
-        <label>Fatturato €</label>
-        <input name="fatturato_eur" type="number" min="0" step="0.01" defaultValue={customer.fatturato_eur ?? ""} />
+        <label htmlFor="f-fatturato_eur">Fatturato €</label>
+        <input id="f-fatturato_eur" name="fatturato_eur" type="number" min="0" step="0.01" defaultValue={customer.fatturato_eur ?? ""} />
       </div>
       <div className="field">
-        <label>Investimento previsto €</label>
-        <input name="investimento_previsto_eur" type="number" min="0" step="0.01" defaultValue={customer.investimento_previsto_eur ?? ""} />
+        <label htmlFor="f-investimento_previsto_eur">Investimento previsto €</label>
+        <input id="f-investimento_previsto_eur" name="investimento_previsto_eur" type="number" min="0" step="0.01" defaultValue={customer.investimento_previsto_eur ?? ""} />
       </div>
       <div className="checks">
         {flags.map(([name, label]) => (
@@ -105,8 +105,8 @@ export function CustomerEditForm({ customer }: { customer: Customer }) {
         ))}
       </div>
       <div className="field full">
-        <label>Note</label>
-        <textarea name="note" rows={3} defaultValue={customer.note ?? ""} />
+        <label htmlFor="f-note">Note</label>
+        <textarea id="f-note" name="note" rows={3} defaultValue={customer.note ?? ""} />
       </div>
       {message && (
         <div className={`${message.includes("aggiornato") ? "success-box" : "error"} field full`}>

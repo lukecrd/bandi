@@ -31,8 +31,8 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="grid">
       <div className="field">
-        <label>Password</label>
-        <input name="password" type="password" autoFocus required />
+        <label htmlFor="f-password">Password</label>
+        <input id="f-password" name="password" type="password" autoFocus required />
       </div>
       {error && <div className="error">{error}</div>}
       <button className="btn" disabled={busy}>

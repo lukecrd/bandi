@@ -104,10 +104,10 @@ export function ItalyCanvas({ counts }: { counts: Record<string, number> }) {
       ctx!.textBaseline = "middle";
       ctx!.font = `700 12px ${fontFamily}`;
       ctx!.fillStyle = `rgba(28, 35, 51, ${fade})`;
-      ctx!.fillText(r.name.toUpperCase(), lx, y - 8);
+      ctx!.fillText(r.name.toUpperCase(), lx, y - 10);
       ctx!.font = `600 12px ${fontFamily}`;
       ctx!.fillStyle = `rgba(${STAMP}, ${fade})`;
-      ctx!.fillText(`${r.n.toLocaleString("it-IT")} bandi`, lx, y + 8);
+      ctx!.fillText(`${r.n.toLocaleString("it-IT")} bandi`, lx, y + 10);
     }
 
     function tick(now: number) {

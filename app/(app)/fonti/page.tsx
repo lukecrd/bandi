@@ -28,7 +28,7 @@ export default async function SourcesPage() {
 
       <div className="grid two">
         <section className="card source-card">
-          <span className="badge open">Fonte ufficiale italiana</span>
+          <span className="badge tag">Fonte ufficiale italiana</span>
           <strong>Incentivi.gov.it</strong>
           <p className="muted">
             Catalogo nazionale degli incentivi. Il connettore normalizza territorio,
@@ -38,7 +38,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Fonte ufficiale UE</span>
+          <span className="badge tag">Fonte ufficiale UE</span>
           <strong>EU Funding & Tenders Portal</strong>
           <p className="muted">
             Search API ufficiale della Commissione europea per call e topic aperti o in arrivo.
@@ -47,7 +47,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Fonte camerale</span>
+          <span className="badge tag">Fonte camerale</span>
           <strong>CCIAA Maremma e Tirreno</strong>
           <p className="muted">
             Bandi camerali per le imprese di Livorno e Grosseto. Il sito non espone un&apos;API pubblica:
@@ -57,7 +57,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Fonte regionale</span>
+          <span className="badge tag">Fonte regionale</span>
           <strong>Sviluppo Toscana</strong>
           <p className="muted">
             Bandi FESR e regionali gestiti per Regione Toscana. Il connettore legge l&apos;elenco dei bandi
@@ -67,7 +67,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Fonte camerale</span>
+          <span className="badge tag">Fonte camerale</span>
           <strong>CCIAA Firenze e CCIAA Bergamo</strong>
           <p className="muted">
             Stesso template del sito della CCIAA Maremma e Tirreno: lo scraper camerale è condiviso.
@@ -80,7 +80,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Aggregatore</span>
+          <span className="badge tag">Aggregatore</span>
           <strong>Contributi Europa</strong>
           <p className="muted">
             Bandi nazionali, regionali ed europei pubblicati negli ultimi due anni. Il connettore legge l&apos;API
@@ -90,7 +90,7 @@ export default async function SourcesPage() {
         </section>
 
         <section className="card source-card">
-          <span className="badge open">Aggregatore</span>
+          <span className="badge tag">Aggregatore</span>
           <strong>BandIntelligence</strong>
           <p className="muted">
             API JSON pubblica con i bandi aperti e in arrivo. Teniamo solo quelli non presi da incentivi.gov.it,

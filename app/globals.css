@@ -73,7 +73,8 @@ h2 { font-size: 20px; font-weight: 700; }
 .nav a:hover, .nav button:hover { color: var(--text); background: #eceeea; }
 .nav a.active { color: var(--brand); background: var(--brand-soft); }
 .nav button { margin-top: 20px; font-weight: 400; }
-.main { padding: 36px 40px; min-width: 0; }
+/* Il fondo lascia spazio al pulsante della chat (56px + 24px), che altrimenti copre gli ultimi controlli. */
+.main { padding: 36px 40px 96px; min-width: 0; }
 .container { max-width: 1440px; margin: 0 auto; }
 
 .page-head {
@@ -166,6 +167,8 @@ td.empty { text-align: center; padding: 48px 16px; }
 .badge.high, .badge.open, .badge.success { color: var(--green); background: var(--green-soft); }
 .badge.medium, .badge.forthcoming, .badge.running { color: var(--amber); background: var(--amber-soft); }
 .badge.low, .badge.error { color: var(--red); background: var(--red-soft); }
+/* Categorie (tipo di fonte): neutre, i colori restano agli stati. */
+.badge.tag { color: var(--muted); background: var(--nav); border-width: 1px; }
 
 .score { font-weight: 700; font-size: 18px; }
 .muted { color: var(--muted); }
@@ -185,7 +188,7 @@ td.empty { text-align: center; padding: 48px 16px; }
 .btn:hover { background: #3c2f84; }
 .btn.ghost { background: transparent; color: var(--muted); }
 .btn.ghost:hover { color: var(--text); }
-.btn.secondary { background: var(--panel); color: var(--text); border-color: #c5cad2; }
+.btn.secondary { background: var(--panel); color: var(--text); border-color: #8a909b; }
 .btn.secondary:hover { border-color: var(--brand); color: var(--brand); }
 .btn.danger { background: var(--panel); color: var(--red); border-color: #e7b7b1; }
 .btn:disabled { opacity: .55; cursor: wait; }
@@ -209,7 +212,8 @@ td.empty { text-align: center; padding: 48px 16px; }
 .field label { font-size: 13px; font-weight: 600; color: var(--text); }
 .field input, .field select, .field textarea, .search {
   width: 100%;
-  border: 1px solid #c5cad2;
+  /* 3,2:1 sul bianco: il contorno dei campi deve superare 3:1 (WCAG 1.4.11). */
+  border: 1px solid #8a909b;
   background: var(--panel);
   border-radius: 6px;
   padding: 8px 10px;
@@ -217,7 +221,7 @@ td.empty { text-align: center; padding: 48px 16px; }
 }
 .field input:focus, .field select:focus, .field textarea:focus, .search:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
+  box-shadow: 0 0 0 3px rgba(74, 58, 156, .35);
 }
 .field.full { grid-column: 1 / -1; }
 .checks {
@@ -272,19 +276,22 @@ td.empty { text-align: center; padding: 48px 16px; }
 
 /* Dashboard: mappa a puntini dei bandi aperti per regione. */
 .region-card { margin-bottom: 18px; }
-.region-map { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; align-items: start; }
-.italy-canvas { display: block; width: 100%; height: 440px; }
-.region-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 16px; font-size: 13px; }
-.region-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.region-map { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+/* Contenuta: la mappa orienta, ma "Bandi da lavorare" deve restare vicino al primo schermo. */
+.italy-canvas { display: block; width: 100%; height: 320px; }
+.region-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; font-size: 13px; }
+.region-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.region-list a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .region-list a:hover { color: var(--brand); text-decoration: underline; }
 .region-list strong { color: var(--margin); }
 @media (max-width: 700px) {
   .region-map { grid-template-columns: 1fr; }
-  .italy-canvas { height: 340px; }
+  .italy-canvas { display: none; }
 }
 
 .source-card {
   display: grid;
+  justify-items: start;
   gap: 8px;
   min-height: 180px;
 }
@@ -356,6 +363,7 @@ td.empty { text-align: center; padding: 48px 16px; }
 .work-count { white-space: nowrap; font-size: 14px; color: var(--muted); }
 .work-count strong { color: var(--text); font-size: 16px; }
 .badge.stamp { justify-content: center; margin-top: 1px; }
+.badge.stamp.expired { color: var(--muted); text-decoration: line-through; }
 
 .selected-grant { display: grid; gap: 6px; margin: 10px 0 0; }
 .selected-grant .small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -391,7 +399,7 @@ td.empty { text-align: center; padding: 48px 16px; }
   #clienti { position: static; max-height: none; }
 }
 @media (max-width: 700px) {
-  .main { padding: 20px 16px; }
+  .main { padding: 20px 16px 88px; }
   .nav { grid-template-columns: 1fr 1fr; }
   .two, .form-grid { grid-template-columns: 1fr; }
   .page-head { flex-direction: column; align-items: flex-start; }
