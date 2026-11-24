@@ -18,6 +18,16 @@ const consonanti = (s: string) => s.replace(/[^B-DF-HJ-NP-TV-Z]/g, "");
 const vocali = (s: string) => s.replace(/[^AEIOU]/g, "");
 const pad = (s: string) => (s + "XXX").slice(0, 3);
 
+// "" se non ha la forma (o, per le 11 cifre, la cifra di controllo) di un codice fiscale: un CF scritto male non deve sembrare "nessun aiuto" nel RNA
+export function normalizzaCf(value: string | undefined) {
+  const cf = (value ?? "").replace(/\s+/g, "").toUpperCase();
+  if (/^\d{11}$/.test(cf)) {
+    const somma = [...cf].reduce((tot, c, i) => tot + (i % 2 ? (+c > 4 ? +c * 2 - 9 : +c * 2) : +c), 0);
+    return somma % 10 === 0 ? cf : "";
+  }
+  return /^[A-Z0-9]{16}$/.test(cf) ? cf : "";
+}
+
 export function cfCognome(cognome: string) {
   const s = cognome.toUpperCase().normalize("NFD").replace(/[^A-Z]/g, "");
   return pad(consonanti(s) + vocali(s));

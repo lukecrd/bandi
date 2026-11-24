@@ -21,7 +21,8 @@ Browser
   │
   ├── Connectors
   │     ├── Incentivi.gov.it
-  │     └── EU Funding & Tenders
+  │     ├── EU Funding & Tenders
+  │     └── RNA open data (aiuti De Minimis per codice fiscale)
   │
   └── Neon Postgres
         ├── customers

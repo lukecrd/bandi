@@ -95,3 +95,10 @@ CREATE TABLE IF NOT EXISTS customer_files (
 );
 
 CREATE INDEX IF NOT EXISTS customer_files_customer_idx ON customer_files(customer_id);
+
+-- aiuti De Minimis per codice fiscale (RNA): array vuoto = verificato, nessun aiuto. Riga assente = mai verificato
+CREATE TABLE IF NOT EXISTS de_minimis (
+  cf TEXT PRIMARY KEY,
+  aiuti JSONB NOT NULL,
+  verificato_il TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

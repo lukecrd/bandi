@@ -22,5 +22,6 @@ export function isSyncSource(value: unknown): value is SyncSource {
 }
 
 export function sourceLabel(value: string) {
+  if (value === "rna-de-minimis") return "Aiuti De Minimis (RNA)"; // non è una fonte di bandi
   return isSyncSource(value) ? SYNC_SOURCES[value] : value;
 }

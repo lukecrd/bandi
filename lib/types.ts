@@ -78,6 +78,20 @@ export type { SyncSource } from "@/lib/sync-sources";
 
 export type CustomerSyncSource = "teamleader";
 
+export type AiutoDeMinimis = {
+  cor: string;
+  car: string;
+  misura: string;
+  progetto: string;
+  concedente: string;
+  data_concessione: string;
+  regolamento: string;
+  elemento_aiuto: number;
+  importo_nominale: number;
+};
+
+export type DeMinimis = { cf: string; aiuti: AiutoDeMinimis[]; verificato_il: string };
+
 export type IntegrationToken = {
   provider: string;
   access_token: string;

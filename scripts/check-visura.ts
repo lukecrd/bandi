@@ -1,7 +1,12 @@
 // Run: npx tsx scripts/check-visura.ts
 import assert from "node:assert/strict";
-import { cfCognome, cfNome, dataNascitaDaCf, parseVisura, splitNome } from "../lib/visura";
+import { cfCognome, cfNome, dataNascitaDaCf, normalizzaCf, parseVisura, splitNome } from "../lib/visura";
 
+assert.equal(normalizzaCf(" 0123 4567897 "), "01234567897");
+assert.equal(normalizzaCf("rssmra70a41h501x"), "RSSMRA70A41H501X");
+assert.equal(normalizzaCf("01234567890"), ""); // cifra di controllo errata
+assert.equal(normalizzaCf("IT01234567897"), "");
+assert.equal(normalizzaCf(undefined), "");
 assert.equal(cfCognome("Rossi"), "RSS");
 assert.equal(cfNome("Mario"), "MRA");
 assert.equal(cfNome("Gianfranco"), "GFR"); // 4+ consonants: 1st, 3rd, 4th

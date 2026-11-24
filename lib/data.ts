@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
-import type { Anagrafica, Customer, CustomerInput, Grant, IntegrationToken } from "@/lib/types";
+import { normalizzaCf } from "@/lib/visura";
+import type { AiutoDeMinimis, Anagrafica, Customer, CustomerInput, DeMinimis, Grant, IntegrationToken } from "@/lib/types";
 import type { CustomerFile } from "@/lib/allegati";
 import { ITALY_REGIONS } from "@/lib/italy-points";
 
@@ -203,6 +204,36 @@ export async function deleteCustomer(id: string) {
   const sql = db();
   await sql.query(`DELETE FROM customers WHERE id = $1`, [id]);
   invalidateMatches();
+}
+
+export async function getDeMinimis(cf: string): Promise<DeMinimis | null> {
+  const key = normalizzaCf(cf);
+  if (!key) return null;
+  const sql = db();
+  const rows = await sql.query(`SELECT * FROM de_minimis WHERE cf = $1`, [key]);
+  if (!rows.length) return null;
+  return { cf: key, aiuti: rows[0].aiuti, verificato_il: new Date(rows[0].verificato_il).toISOString() };
+}
+
+/** Codici fiscali validi dei clienti, normalizzati e senza doppioni. */
+export async function getCustomerCfs() {
+  const sql = db();
+  const rows = await sql.query(
+    `SELECT anagrafica->>'codice_fiscale' AS cf FROM customers WHERE anagrafica->>'codice_fiscale' <> ''`
+  );
+  return new Set(rows.map((row) => normalizzaCf(row.cf)).filter(Boolean));
+}
+
+/** Sostituisce in blocco gli aiuti De Minimis: chi non è in `aiuti` non è più cliente e viene tolto. */
+export async function replaceDeMinimis(aiuti: Map<string, AiutoDeMinimis[]>) {
+  const sql = db();
+  await sql.transaction([
+    ...[...aiuti].map(([cf, elenco]) => sql`
+      INSERT INTO de_minimis (cf, aiuti) VALUES (${cf}, ${JSON.stringify(elenco)})
+      ON CONFLICT (cf) DO UPDATE SET aiuti = EXCLUDED.aiuti, verificato_il = NOW()
+    `),
+    sql`DELETE FROM de_minimis WHERE NOT (cf = ANY(${[...aiuti.keys()]}::text[]))`,
+  ]);
 }
 
 export async function upsertCustomers(inputs: CustomerInput[]) {
