@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { settoriContributiEuropa } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 import { inferTopics, sleep } from "@/lib/sources/camcom";
 
@@ -87,7 +88,7 @@ export function mapBando(b: WpBando, regionNames: Map<string, string>, today: st
     status: /prossima apertura/i.test(statusText) || (opening && opening > today) ? "In arrivo" : "Aperto",
     regions: regions.length ? regions : ["ITALIA"],
     sizes: mapSizes(terms(b.class_list, "beneficiari")),
-    ateco_filter: ["*"],
+    ateco_filter: settoriContributiEuropa(settori),
     topics: inferTopics([title, description, ...settori].join(" ; ")),
     invest_min_eur: null,
     invest_max_eur: null,

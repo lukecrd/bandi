@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { settoriDaTitolo } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 import { fetchHtml, inferTopics, parseItalianLongDate, sleep } from "@/lib/sources/camcom";
 
@@ -32,7 +33,9 @@ function extractListing(html: string) {
   return { items, totalPages };
 }
 
-function mapStatus(raw: string): Grant["status"] {
+function mapStatus(raw: string, title: string): Grant["status"] {
+  // sportelli per chi ha già vinto: restano "aperti" ma non si può più fare domanda
+  if (/\((?:in )?(?:rendicontazione|variant[ei]|varianti\/esecutivi)\)/i.test(title)) return "Chiuso";
   return /in arrivo/i.test(raw) ? "In arrivo" : "Aperto"; // "Aperto" e "In Scadenza"
 }
 
@@ -86,10 +89,10 @@ export async function fetchSviluppoToscana(): Promise<Grant[]> {
       title: item.title,
       ente: "Regione Toscana / Sviluppo Toscana",
       level: "Regionale",
-      status: mapStatus(item.statusRaw),
+      status: mapStatus(item.statusRaw, item.title),
       regions: ["Toscana"],
       sizes: mapSizes(detail?.destinatari ?? []),
-      ateco_filter: ["*"],
+      ateco_filter: settoriDaTitolo(item.title),
       topics: [...new Set([...(detail?.temi ?? []), ...inferTopics(topicText)])],
       invest_min_eur: null,
       invest_max_eur: null,

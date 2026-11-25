@@ -30,7 +30,7 @@ export default async function GrantsPage({
   const region = typeof params.region === "string" ? params.region : "";
   const customerId = typeof params.customer === "string" ? params.customer : "";
 
-  const tuttiAteco = params.ateco === "tutti";
+  const mostraEsclusi = params.esclusi === "mostra";
 
   const [all, regions, customers] = await Promise.all([
     getGrants({ search: q, source, status, region, limit: 5000 }),
@@ -40,12 +40,13 @@ export default async function GrantsPage({
   const customer = customers.find((c) => c.id === customerId);
   // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
   const scored = all.map((grant) => ({ grant, match: customer && scoreGrant(customer, grant) }));
-  const esclusi = scored.filter((s) => s.match?.ateco_escluso).length;
-  const shown = tuttiAteco ? scored : scored.filter((s) => !s.match?.ateco_escluso);
+  const adatti = scored.filter((s) => !s.match?.esclusioni.length);
+  const esclusi = scored.length - adatti.length;
+  const shown = mostraEsclusi ? scored : adatti;
   const codiceAteco = customer && (customer.ateco || customer.anagrafica?.ateco);
   const conAteco = codiciCliente(codiceAteco).length > 0;
-  const atecoHref = `/bandi?${new URLSearchParams({
-    q, region, source, status, customer: customerId, ...(tuttiAteco ? {} : { ateco: "tutti" }),
+  const esclusiHref = `/bandi?${new URLSearchParams({
+    q, region, source, status, customer: customerId, ...(mostraEsclusi ? {} : { esclusi: "mostra" }),
   })}`;
   const filtered = Boolean(q || source || status || region || customerId);
 
@@ -106,16 +107,15 @@ export default async function GrantsPage({
         {conAteco && <> · ATECO {codiceAteco}</>}
         {esclusi > 0 && (
           <>
-            {" · "}{esclusi} per altri ATECO {tuttiAteco ? "in elenco" : "nascosti"}{" "}
-            (<Link className="title-link" href={atecoHref}>{tuttiAteco ? "nascondi" : "mostra"}</Link>)
+            {" · "}{esclusi} non adatti {mostraEsclusi ? "in elenco" : "nascosti"}{" "}
+            (<Link className="title-link" href={esclusiHref}>{mostraEsclusi ? "nascondi" : "mostra"}</Link>)
           </>
         )}
       </p>
       {customer && (
         <p className="muted small">
-          {conAteco
-            ? "I codici ATECO ammessi arrivano solo da Incentivi.gov.it: i bandi per tutti i settori e quelli delle altre fonti restano in elenco."
-            : <>Questo cliente non ha un codice ATECO leggibile: i bandi non sono filtrati per ATECO. <Link className="title-link" href={`/clienti/${customer.id}`}>Aggiungilo nella scheda cliente</Link>.</>}
+          {!mostraEsclusi && "Nascosti i bandi per altre regioni, altri beneficiari o altri settori. "}
+          {!conAteco && <>Questo cliente non ha un codice ATECO leggibile: restano solo i bandi per tutti i settori. <Link className="title-link" href={`/clienti/${customer.id}`}>Aggiungilo nella scheda cliente</Link>.</>}
         </p>
       )}
 
@@ -137,12 +137,13 @@ export default async function GrantsPage({
               return (
               <tr key={grant.id}>
                 {match && (
-                  <td className="nowrap">
+                  <td className={match.esclusioni.length ? undefined : "nowrap"}>
                     <span className="score">{match.score_totale}</span>/100 <StatusBadge value={match.classe} />
                     <div className="muted small" title="Regione · Dimensione · ATECO · Temi · Investimento · Tempistica">
                       R {match.score_regione} · D {match.score_dimensione} · A {match.score_ateco} ·
                       T {match.score_temi} · I {match.score_investimento} · C {match.score_tempistica}
                     </div>
+                    {match.esclusioni.length > 0 && <div className="small">Non adatto: {match.esclusioni.join(", ")}</div>}
                   </td>
                 )}
                 <td><StatusBadge value={grant.status} /></td>

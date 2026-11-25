@@ -1,14 +1,19 @@
 import { atecoAmmesso, codiciCliente } from "@/lib/ateco";
+import { provincia, provinceCamera } from "@/lib/province";
 import type { Customer, Grant, MatchResult } from "@/lib/types";
 
 export const SCORE_WEIGHTS = {
   regione: 25,
   dimensione: 15,
-  ateco: 15,
-  temi: 25,
+  ateco: 25,
+  temi: 15,
   investimento: 10,
   tempistica: 10,
 } as const;
+
+/** Bando aperto a tutti i settori o a moltissimi: è ammesso, ma non è "del" settore del cliente. */
+const ATECO_GENERICO = 12;
+const MAX_DIVISIONI_MIRATO = 20;
 
 function norm(value: unknown) {
   return String(value ?? "")
@@ -20,7 +25,11 @@ function norm(value: unknown) {
 
 function containsAny(haystack: string[], needles: string[]) {
   const text = norm(haystack.join(" ; "));
-  return needles.some((needle) => text.includes(norm(needle)));
+  // a inizio parola; le sigle ("ai") solo intere, altrimenti "ai" è in "aiuti"
+  return needles.some((needle) => {
+    const n = norm(needle);
+    return new RegExp(`(?<![a-z])${n}${n.length <= 2 ? "(?![a-z])" : ""}`).test(text);
+  });
 }
 
 function sizeMatches(customerSize: string, allowed: string[]) {
@@ -34,10 +43,12 @@ function sizeMatches(customerSize: string, allowed: string[]) {
 
 export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   const regionText = grant.regions.map(norm);
-  const customerRegion = norm(customer.regione);
+  // "Toscana, Lazio": il cliente ha sedi in più regioni
+  const prov = provincia(customer.provincia);
+  const customerRegions = norm(customer.regione || prov?.regione).split(",").map((r) => r.trim()).filter(Boolean);
   const score_regione =
-    // regione cliente vuota: "".includes è sempre vero, quindi vale solo per i bandi nazionali
-    regionText.some((r) => r === "italia" || (customerRegion !== "" && r.includes(customerRegion)))
+    // senza regione il cliente rientra solo nei bandi nazionali
+    regionText.some((r) => r === "italia" || customerRegions.some((c) => r.includes(c)))
       ? SCORE_WEIGHTS.regione
       : 0;
 
@@ -48,7 +59,11 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   // l'ATECO letto dalla visura vale se quello della scheda manca
   const ammesso = atecoAmmesso(codiciCliente(customer.ateco || customer.anagrafica?.ateco), grant.ateco_filter);
   const apertoATutti = !grant.ateco_filter.length || grant.ateco_filter.includes("*");
-  const score_ateco = ammesso || apertoATutti ? SCORE_WEIGHTS.ateco : 0;
+  // punteggio pieno solo se il bando è rivolto al settore del cliente, non a mezza economia
+  const mirato = new Set(grant.ateco_filter.map((f) => f.slice(0, 2))).size <= MAX_DIVISIONI_MIRATO;
+  const score_ateco = ammesso && mirato
+    ? SCORE_WEIGHTS.ateco
+    : ammesso || apertoATutti ? ATECO_GENERICO : 0;
 
   let themePoints = 0;
   if (
@@ -109,6 +124,20 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     score_investimento +
     score_tempistica;
 
+  const comune = norm(grant.ente).match(/^comune di (.+)$/)?.[1];
+  // l'ente; per Contributi Europa, che non lo indica, il titolo inizia con la Camera
+  const camera = provinceCamera(grant.ente ?? grant.title.split(".")[0]);
+  const esclusioni = [
+    !score_regione && "altra regione",
+    comune && comune !== norm(customer.anagrafica?.sede_comune) && "solo imprese del Comune",
+    prov && camera.length > 0 && !camera.includes(prov.sigla) && "Camera di Commercio di altra provincia",
+    !score_dimensione && "altri beneficiari",
+    ammesso === false && "altri settori ATECO",
+    ammesso === null && !apertoATutti && "riservato a settori, ATECO del cliente mancante",
+    // call europee: in consorzio e su temi di ricerca, solo per chi ha dichiarato un tema in comune
+    grant.level === "UE" && !score_temi && "call UE senza temi in comune",
+  ].filter((motivo): motivo is string => Boolean(motivo));
+
   const classe =
     score_totale >= 75 ? "ALTA" : score_totale >= 50 ? "MEDIA" : "BASSA";
 
@@ -121,7 +150,7 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     score_investimento,
     score_tempistica,
     score_totale,
-    ateco_escluso: ammesso === false,
+    esclusioni,
     classe,
   };
 }
@@ -130,9 +159,9 @@ export function minMatchScore() {
   return Number(process.env.MATCH_MIN_SCORE ?? 50);
 }
 
-/** Sopra soglia e con un ATECO ammesso: il punteggio da solo non esclude un settore vietato. */
+/** Sopra soglia e senza motivi di esclusione: il punteggio da solo non scarta un bando a cui il cliente non può partecipare. */
 export function isMatch(match: MatchResult, min: number) {
-  return !match.ateco_escluso && match.score_totale >= min;
+  return !match.esclusioni.length && match.score_totale >= min;
 }
 
 export function scoreAll(customer: Customer, grants: Grant[]) {

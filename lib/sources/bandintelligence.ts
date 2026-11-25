@@ -1,3 +1,4 @@
+import { settoriBandIntelligence, soloNonImprese } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 import { inferTopics, sleep } from "@/lib/sources/camcom";
 
@@ -67,11 +68,11 @@ export function mapBiBando(b: BiBando): Grant {
     id: `BI-${b.slug}`,
     title: b.title,
     ente: b.source_name,
-    level: regions[0] === "ITALIA" ? "Nazionale" : "Regionale/locale",
+    level: /^european commission/i.test(b.source_name ?? "") ? "UE" : regions[0] === "ITALIA" ? "Nazionale" : "Regionale/locale",
     status: b.status === "upcoming" ? "In arrivo" : "Aperto",
     regions,
-    sizes: ["*"],
-    ateco_filter: ["*"],
+    sizes: soloNonImprese(`${b.title} ; ${summary}`) ? ["Enti pubblici o privati"] : ["*"],
+    ateco_filter: settoriBandIntelligence(b.sector, b.title),
     topics: [...new Set([...needs, ...inferTopics([b.title, summary, needs.join(" ")].join(" ; "))])],
     invest_min_eur: null,
     invest_max_eur: null,

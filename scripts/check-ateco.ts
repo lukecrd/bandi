@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { atecoAmmesso, codiciBando, codiciCliente } from "../lib/ateco";
 import { scoreAll, scoreGrant } from "../lib/scoring";
+import { settoriBandIntelligence, settoriContributiEuropa, settoriDaTitolo, settoriIncentivi, soloNonImprese } from "../lib/settori";
+import { mapDoc } from "../lib/sources/incentivi";
 import type { Customer, Grant } from "../lib/types";
 
 // valori reali del campo libero dei clienti
@@ -30,16 +32,64 @@ assert.equal(atecoAmmesso(["5630"], ["*"]), null);
 
 const cliente = { regione: "Toscana", dimensione: "Micro", ateco: "56.30.01", anagrafica: {}, investimento_previsto_eur: null } as Customer;
 const bando = (ateco_filter: string[]) =>
-  ({ regions: ["ITALIA"], sizes: ["*"], ateco_filter, topics: [], invest_min_eur: null, invest_max_eur: null, status: "Aperto", deadline: null }) as unknown as Grant;
+  ({ title: "Bando di prova", regions: ["ITALIA"], sizes: ["*"], ateco_filter, topics: [], invest_min_eur: null, invest_max_eur: null, status: "Aperto", deadline: null }) as unknown as Grant;
 const vietato = bando(["55.1"]);
 assert.ok(scoreGrant(cliente, vietato).score_totale >= 50); // il solo punteggio non basta a escluderlo
 assert.deepEqual(scoreAll(cliente, [vietato, bando(["56"]), bando(["*"])]).map((m) => m.grant.ateco_filter[0]), ["56", "*"]);
 // ATECO presente solo nella visura
-assert.equal(scoreGrant({ ...cliente, ateco: null, anagrafica: { ateco: "56.30.01" } }, vietato).ateco_escluso, true);
-// senza ATECO il bando non si esclude, ma non prende i punti
-const ignoto = scoreGrant({ ...cliente, ateco: null }, vietato);
-assert.equal(ignoto.ateco_escluso, false);
-assert.equal(ignoto.score_ateco, 0);
-assert.equal(scoreGrant({ ...cliente, ateco: null }, bando(["*"])).score_ateco, 15);
+assert.equal(scoreGrant({ ...cliente, ateco: null, anagrafica: { ateco: "56.30.01" } }, vietato).esclusioni.length, 1);
+// senza ATECO restano solo i bandi per tutti i settori
+assert.deepEqual(scoreGrant({ ...cliente, ateco: null }, vietato).esclusioni, ["riservato a settori, ATECO del cliente mancante"]);
+assert.deepEqual(scoreGrant({ ...cliente, ateco: null }, bando(["*"])).esclusioni, []);
+// il bando del settore vale più di quello generico
+assert.ok(scoreGrant(cliente, bando(["56"])).score_totale > scoreGrant(cliente, bando(["*"])).score_totale);
+assert.equal(scoreGrant(cliente, bando(["56"])).classe, "ALTA");
+
+const motivi = (g: Partial<Grant>, c: Partial<Customer> = {}) => scoreGrant({ ...cliente, ...c } as Customer, { ...bando(["*"]), ...g } as Grant).esclusioni;
+assert.deepEqual(motivi({ regions: ["Lazio"] }), ["altra regione"]);
+assert.deepEqual(motivi({ regions: ["Lazio"] }, { regione: "Toscana, Lazio" }), []);
+assert.deepEqual(motivi({ sizes: ["ente pubblico"] }), ["altri beneficiari"]);
+assert.deepEqual(motivi({ ente: "COMUNE DI TREVIGLIO" }), ["solo imprese del Comune"]);
+assert.deepEqual(motivi({ ente: "Comune di Treviglio" }, { anagrafica: { sede_comune: "TREVIGLIO" } }), []);
+// province: Camere di Commercio, e regione ricavata quando manca
+const camera = "Camera di Commercio, Industria, Artigianato e Agricoltura di Firenze";
+assert.deepEqual(motivi({ ente: camera }, { provincia: "GROSSETO" }), ["Camera di Commercio di altra provincia"]);
+assert.deepEqual(motivi({ ente: camera }, { provincia: "FI" }), []);
+assert.deepEqual(motivi({ ente: camera }, { provincia: null }), []);
+assert.deepEqual(motivi({ ente: "Camera di Commercio Maremma e Tirreno" }, { provincia: "GR" }), []);
+assert.deepEqual(motivi({ ente: "CCIAA Roma" }, { provincia: "Roma" }), []);
+assert.deepEqual(motivi({ ente: "Camera di Commercio della Romagna Forlì Cesena e Rimini" }, { provincia: "Roma" }), ["Camera di Commercio di altra provincia"]);
+assert.deepEqual(motivi({ ente: "Camera di Commercio I.A.A. Frosinone-Latina" }, { provincia: "Latina" }), []);
+assert.deepEqual(motivi({ ente: null, title: "CCIAA di Brescia. Finanziamento a fondo perduto" }, { provincia: "Siena" }), ["Camera di Commercio di altra provincia"]);
+assert.deepEqual(motivi({ ente: "Unione Regionale Delle Camere di Commercio della Lombardia" }, { provincia: "Milano" }), []);
+assert.deepEqual(motivi({ regions: ["Toscana"] }, { regione: "", provincia: "MASSA-CARRARA" }), []);
+assert.deepEqual(motivi({ regions: ["Toscana"] }, { regione: "", provincia: null }), ["altra regione"]);
+assert.deepEqual(motivi({ level: "UE", topics: ["R&S"] }), ["call UE senza temi in comune"]);
+assert.deepEqual(motivi({ level: "UE", topics: ["R&S"] }, { ricerca_sviluppo: true }), []);
+// "ai" non deve scattare dentro "aiuti"
+assert.equal(scoreGrant({ ...cliente, digitale: true }, { ...bando(["*"]), topics: ["aiuti"] }).score_temi, 0);
+
+assert.deepEqual(settoriIncentivi(["Alberghiero", "Ristorazione"]), ["55", "56"]);
+assert.deepEqual(settoriIncentivi(["Commercio", "Altri servizi"]), ["*"]);
+assert.deepEqual(settoriIncentivi([]), ["*"]);
+assert.deepEqual(settoriContributiEuropa(["agricoltura", "pesca"]), ["03"]);
+assert.deepEqual(settoriContributiEuropa(["servizi", "audiovisivo media cinema"]), ["59", "60"]);
+assert.deepEqual(settoriContributiEuropa(["turismo", "voce mai vista"]), ["*"]);
+assert.deepEqual(settoriContributiEuropa(["agricoltura", "agroindustria", "artigianato", "industria", "commercio", "turismo", "cultura", "servizi"]), ["*"]);
+assert.deepEqual(settoriBandIntelligence("generale", "Contributi per le risorse genetiche agrarie"), ["01", "02", "03"]);
+assert.deepEqual(settoriDaTitolo("Bando Sviluppo Impresa 2026"), ["*"]);
+assert.equal(soloNonImprese("Bando parcheggi 2026 ; Contributi regionali della Toscana ai Comuni"), true);
+assert.equal(soloNonImprese("Incentivi per enti pubblici locali, società pubbliche e PMI"), false);
+
+const doc = { idBando: "1", Regioni: ["Toscana"], Dimensione_beneficiari: ["Microimpresa"], Codici_ATECO: "Tutti i settori economici ammissibili a ricevere aiuti;" };
+const regioni = (Soggetto_Concedente: string, Regioni: string[]) => mapDoc({ ...doc, Soggetto_Concedente, Regioni }).regions;
+assert.deepEqual(regioni("Regione Siciliana - Dipartimento regionale dell'Agricoltura", ["Sicilia"]), ["Sicilia"]);
+assert.deepEqual(regioni("Ministero delle Imprese", ["Sardegna"]), ["Sardegna"]);
+assert.deepEqual(regioni("Ministero delle Imprese", []), ["ITALIA"]);
+assert.deepEqual(regioni("SIMEST", Array.from({ length: 20 }, (_, i) => `R${i}`)), ["ITALIA"]);
+assert.deepEqual(mapDoc({ ...doc, Tipologia_Soggetto: ["Ente Pubblico"] }).sizes, ["Ente Pubblico"]);
+assert.deepEqual(mapDoc({ ...doc, Tipologia_Soggetto: ["Impresa", "Ente Pubblico"] }).sizes, ["Microimpresa"]);
+assert.deepEqual(mapDoc({ ...doc, Settore_Attivita: ["Agricoltura, silvicoltura e pesca"] }).ateco_filter, ["01", "02", "03"]);
+assert.deepEqual(mapDoc({ ...doc, Settore_Attivita: ["Cultura"], Codici_ATECO: "ATECO 2025: 59.11" }).ateco_filter, ["59.11"]);
 
 console.log("check-ateco: ok");

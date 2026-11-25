@@ -81,7 +81,7 @@ const TOOLS = [
   {
     name: "match_cliente",
     description:
-      "Restituisce i bandi attivi più adatti a un cliente, calcolati con il punteggio di matching dell'app (0-100: regione 25, dimensione 15, ATECO 15, temi 25, investimento 10, tempistica 10; classe ALTA >= 75, MEDIA >= 50). Serve l'id ottenuto da cerca_clienti.",
+      "Restituisce i bandi attivi più adatti a un cliente, calcolati con il punteggio di matching dell'app (0-100: regione 25, dimensione 15, ATECO 25, temi 15, investimento 10, tempistica 10; classe ALTA >= 75, MEDIA >= 50). Sono già tolti i bandi a cui il cliente non può partecipare per regione, beneficiari o settore ATECO. Serve l'id ottenuto da cerca_clienti.",
     parametersJsonSchema: {
       type: "object",
       properties: {

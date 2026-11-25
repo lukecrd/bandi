@@ -99,7 +99,7 @@ const getMatchCounts = unstable_cache(
     });
     return { rows, customers: customers.length };
   },
-  ["dashboard-match-counts"],
+  ["dashboard-match-counts-v2"] /* da cambiare con la logica del punteggio: la cache sopravvive ai deploy */,
   { tags: [MATCHES_TAG] }
 );
 

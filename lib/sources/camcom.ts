@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { settoriDaTitolo } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 
 // Camere di Commercio sul template Drupal InfoCamere, senza API pubblica:
@@ -305,7 +306,7 @@ function mapToGrant(item: ListedBando, detailText: string | null, chamber: Chamb
     status,
     regions: [chamber.region],
     sizes: ["Micro", "Piccola", "Media"],
-    ateco_filter: ["*"],
+    ateco_filter: settoriDaTitolo(item.title),
     topics,
     invest_min_eur: null,
     invest_max_eur: null,

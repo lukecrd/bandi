@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { settoriDaTitolo } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 import { CHAMBERS, fetchHtml, inferTopics, parseSlashDate, sleep } from "@/lib/sources/camcom";
 
@@ -108,7 +109,7 @@ export function parseBando(html: string, url: string): Grant | null {
     status: mapStatus(between(text, "Stato:", "Tipologia:")),
     regions: regionForEnte(ente),
     sizes: mapSizes(beneficiari),
-    ateco_filter: ["*"],
+    ateco_filter: settoriDaTitolo(title),
     topics: [...new Set(inferTopics([title, description, ...categorie, ...spese].join(" ; ")))],
     invest_min_eur: euros(between(text, "Importo del progetto minimo", "Contributo")),
     invest_max_eur: null,

@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { getActiveGrants, getCustomer, listCustomerFiles } from "@/lib/data";
 import { createAllegatiToken } from "@/lib/auth";
 import { AllegatiPanel } from "@/components/allegati-panel";
+import { codiciCliente } from "@/lib/ateco";
 import { scoreAll } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,11 @@ export default async function CustomerDetail({
 
       <div style={{ height: 18 }} />
 
+      {!codiciCliente(customer.ateco || customer.anagrafica?.ateco).length && (
+        <div className="notice" style={{ marginBottom: 12 }}>
+          <b>Codice ATECO mancante o non leggibile.</b> Qui sotto compaiono solo i bandi per tutti i settori: inserisci l&apos;ATECO per vedere quelli del suo settore.
+        </div>
+      )}
       <div className="table-wrap">
         <table>
           <thead>

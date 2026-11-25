@@ -1,5 +1,6 @@
 import { get } from "node:https";
 import { codiciBando } from "@/lib/ateco";
+import { settoriIncentivi } from "@/lib/settori";
 import type { Grant } from "@/lib/types";
 
 // Il sito blocca le connessioni da fuori Europa (ETIMEDOUT dagli USA): per questo in vercel.json
@@ -76,7 +77,7 @@ function isNational(grantor: string | null) {
   ].some((marker) => value.includes(marker));
 }
 
-function mapDoc(doc: Record<string, unknown>): Grant {
+export function mapDoc(doc: Record<string, unknown>): Grant {
   const rawId = text(doc, "idBando") ?? crypto.randomUUID();
 
   const grantor = text(doc, "Soggetto_Concedente", "Amministrazione_responsabile");
@@ -87,26 +88,34 @@ function mapDoc(doc: Record<string, unknown>): Grant {
   const min = minRaw !== null && maxRaw !== null && minRaw > maxRaw ? maxRaw : minRaw;
   const max = minRaw !== null && maxRaw !== null && minRaw > maxRaw ? minRaw : maxRaw;
 
-  const regions = isNational(grantor)
-    ? ["ITALIA"]
-    : fieldList(doc, "Regioni");
+  // "Regione Siciliana - Dipartimento…" non è nazionale, e un ministero può finanziare una sola regione
+  const elenco = fieldList(doc, "Regioni");
+  const locale = /^(?:regione|provincia|comune|camera|unione|cciaa)/i.test(grantor ?? "");
+  const national = !locale && (elenco.length >= 15 || (!elenco.length && isNational(grantor)));
+  const regions = national ? ["ITALIA"] : elenco;
 
-  const sizes = fieldList(doc, "Dimensione_beneficiari");
+  // Enti, cittadini, università: la dimensione è spesso compilata lo stesso, ma non è un bando per imprese.
+  const soggetti = Array.isArray(doc.Tipologia_Soggetto) ? doc.Tipologia_Soggetto.map(String) : [];
+  const perImprese = !soggetti.length || soggetti.some((s) => /^Impresa$|^Impresa - |^Professionista$/.test(s));
+  const dimensioni = fieldList(doc, "Dimensione_beneficiari").filter((d) => !/^non classificabile/i.test(d));
+  const sizes = perImprese ? dimensioni : soggetti;
+  // i nomi di settore contengono virgole: niente fieldList, che li spezza
+  const settori = Array.isArray(doc.Settore_Attivita) ? doc.Settore_Attivita.map(String) : [];
+  const codici = codiciBando(text(doc, "Codici_ATECO"));
   const topics = [
     ...fieldList(doc, "Obiettivo_Finalita"),
-    ...fieldList(doc, "Settore_Attivita"),
-    ...sizes,
+    ...settori,
   ];
 
   return {
     id: `IGOV-${rawId}`,
     title: text(doc, "Titolo") ?? "Incentivo senza titolo",
     ente: grantor,
-    level: isNational(grantor) ? "Nazionale" : "Regionale/locale",
+    level: national ? "Nazionale" : "Regionale/locale",
     status: inferStatus(opening, deadline),
     regions: regions.length ? regions : ["ITALIA"],
     sizes: sizes.length ? sizes : ["*"],
-    ateco_filter: codiciBando(text(doc, "Codici_ATECO")),
+    ateco_filter: codici.includes("*") ? settoriIncentivi(settori) : codici,
     topics,
     invest_min_eur: min,
     invest_max_eur: max,
