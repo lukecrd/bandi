@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DeMinimis } from "@/lib/types";
@@ -12,7 +13,7 @@ const EURO = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR"
 
 const LINK = { textDecoration: "underline" };
 
-export function DeMinimisPanel({ cf, dati }: { cf: string; dati: DeMinimis | null }) {
+export function DeMinimisPanel({ customerId, cf, dati }: { customerId: string; cf: string; dati: DeMinimis | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -43,7 +44,10 @@ export function DeMinimisPanel({ cf, dati }: { cf: string; dati: DeMinimis | nul
   return (
     <div className="grid">
       {!cf ? (
-        <p className="muted">Codice fiscale mancante o non valido (11 cifre o 16 caratteri): inseriscilo e salvalo in «Dati per compilazione bandi».</p>
+        <p className="muted">
+          Codice fiscale mancante o non valido (11 cifre o 16 caratteri): inseriscilo e salvalo nella scheda cliente, in{" "}
+          <Link href={`/clienti/${customerId}`} style={LINK}>«Dati per compilazione bandi»</Link>.
+        </p>
       ) : !dati ? (
         <div className="notice"><b>Mai verificato.</b></div>
       ) : dati.aiuti.length === 0 ? (

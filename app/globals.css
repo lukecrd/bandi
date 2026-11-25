@@ -327,6 +327,11 @@ td.empty { text-align: center; padding: 48px 16px; }
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
+/* Dashboard: ultimi avvisi e aiuti De Minimis, in testa alla pagina. */
+.avvisi, #de-minimis { margin-bottom: 18px; }
+#de-minimis form { margin: 10px 0 16px; }
+#de-minimis > p { margin: 0; }
+#de-minimis > h3 { margin-bottom: 10px; }
 /* Banco di lavoro: elenco dei bandi a sinistra, clienti del bando scelto a destra. */
 .workbench {
   display: grid;
@@ -358,6 +363,11 @@ td.empty { text-align: center; padding: 48px 16px; }
   -webkit-line-clamp: 3;
   overflow: hidden;
 }
+.avvisi { background: var(--brand-soft); padding-block: 16px 8px; }
+.avvisi .worklist { margin-top: 4px; }
+.avvisi .work-row { grid-template-columns: 88px minmax(0, 1fr) minmax(0, 260px); padding-block: 7px; }
+.avvisi .work-title { -webkit-line-clamp: 2; }
+.avvisi .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .worklist-note { margin: 14px 0 0; }
 .worklist-note .title-link { color: var(--brand); }
 /* Su desktop i clienti del bando scelto restano in vista mentre si scorre l'elenco. */
@@ -438,6 +448,9 @@ td.empty { text-align: center; padding: 48px 16px; }
   .work-row { grid-template-columns: 1fr; gap: 6px; }
   .work-row .badge.stamp { justify-self: start; }
   .card-title { flex-wrap: wrap; }
+  .avvisi .work-row { grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; }
+  .avvisi .work-title { grid-column: 1 / -1; order: -1; }
+  .avvisi li:nth-child(n + 4) { display: none; }
 }
 
 .chat { display: flex; flex-direction: column; min-height: 0; flex: 1; }

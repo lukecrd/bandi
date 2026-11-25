@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import { DeMinimisPanel } from "@/components/de-minimis-panel";
 import { Kpi } from "@/components/kpi";
 import { ItalyCanvas } from "@/components/italy-canvas";
 import { Questionario, type QuestionarioCliente } from "@/components/questionario";
@@ -8,7 +9,9 @@ import {
   getActiveGrants,
   getCustomers,
   getDashboardStats,
+  getDeMinimis,
   getGrant,
+  getNewGrants,
   getOpenGrantsByRegion,
   getRecentSyncRuns,
   MATCHES_TAG,
@@ -16,11 +19,13 @@ import {
 import { minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
 import { sourceLabel } from "@/lib/sync-sources";
 import type { Customer, Grant, MatchResult } from "@/lib/types";
+import { normalizzaCf } from "@/lib/visura";
 
 export const dynamic = "force-dynamic";
 
 const MAX_GRANTS = 10;
 const MAX_NAMES = 24;
+const MAX_AVVISI = 5;
 const DAY = 86_400_000;
 
 const CRITERIA = [
@@ -152,12 +157,13 @@ export default async function Dashboard({
   const params = await searchParams;
   const bandoId = typeof params.bando === "string" ? params.bando : "";
   const min = minMatchScore();
-  const [stats, customers, syncs, counts, regions] = await Promise.all([
+  const [stats, customers, syncs, counts, regions, avvisi] = await Promise.all([
     getDashboardStats(),
     getCustomers(),
     getRecentSyncRuns(),
     getMatchCounts(min),
     getOpenGrantsByRegion(),
+    getNewGrants(new Date(0).toISOString(), MAX_AVVISI),
   ]);
   const regionCounts = Object.fromEntries(regions.map((r) => [r.name, r.n]));
 
@@ -166,7 +172,12 @@ export default async function Dashboard({
   const work = all.filter((w) => w.count < counts.customers);
   const generic = all.length - work.length;
   const selectedId = bandoId || work[0]?.grant.id;
-  const selected = selectedId ? await getGrant(selectedId) : null;
+  // Cercato tra i clienti già caricati: un id non valido non arriva al DB.
+  const cliente = customers.find((c) => c.id === params.cliente);
+  const cf = normalizzaCf(cliente?.anagrafica?.codice_fiscale);
+  const [selected, deMinimis] = await Promise.all([selectedId ? getGrant(selectedId) : null, getDeMinimis(cf)]);
+  const bandoHref = (id: string) =>
+    `/?bando=${encodeURIComponent(id)}${cliente ? `&cliente=${cliente.id}` : ""}#clienti`;
   const interested = selected
     ? customers
         .map((customer) => ({ customer, match: scoreGrant(customer, selected) }))
@@ -195,6 +206,28 @@ export default async function Dashboard({
 
   return (
     <>
+      {avvisi.grants.length > 0 && (
+        <section className="card avvisi" aria-labelledby="avvisi-title">
+          <div className="card-title">
+            <h2 id="avvisi-title">Ultimi avvisi</h2>
+            <Link href="/bandi">Tutti i bandi</Link>
+          </div>
+          <ul className="worklist">
+            {avvisi.grants.map((grant) => (
+              <li key={grant.id}>
+                <Link href={bandoHref(grant.id)} className="work-row">
+                  <DeadlineStamp grant={grant} />
+                  <span className="work-title">{grant.title}</span>
+                  <span className="muted small">
+                    {grant.source} · {grant.regions.includes("ITALIA") ? "Nazionale" : grant.regions.join(", ")}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
@@ -205,6 +238,34 @@ export default async function Dashboard({
           <Link className="btn" href="/clienti?nuovo=1">Nuovo cliente</Link>
         </div>
       </div>
+
+      <section className="card" id="de-minimis" aria-labelledby="de-minimis-title">
+        <div className="card-title">
+          <h2 id="de-minimis-title">Aiuti De Minimis (RNA)</h2>
+          {cliente && <Link href={`/clienti/${cliente.id}`}>Scheda cliente</Link>}
+        </div>
+        <form className="filters" method="get" action="/#de-minimis">
+          {bandoId && <input type="hidden" name="bando" value={bandoId} />}
+          <div className="field grow">
+            <label htmlFor="cliente">Cliente</label>
+            {/* key: defaultValue non segue il cliente scelto nelle navigazioni senza ricarica. */}
+            <select id="cliente" name="cliente" key={cliente?.id} defaultValue={cliente?.id ?? ""}>
+              <option value="">Scegli un cliente</option>
+              {questionarioClienti.map((c) => <option key={c.id} value={c.id}>{c.ragione_sociale}</option>)}
+            </select>
+          </div>
+          <button className="btn">Verifica</button>
+        </form>
+        {cliente ? (
+          <>
+            {/* Il menu può già indicare un altro cliente non ancora verificato: il nome dice di chi sono i dati. */}
+            <h3>{cliente.ragione_sociale}{cf && ` · CF ${cf}`}</h3>
+            <DeMinimisPanel customerId={cliente.id} cf={cf} dati={deMinimis} />
+          </>
+        ) : (
+          <p className="muted small">Scegli un cliente per vedere gli aiuti De Minimis ricevuti negli ultimi 3 anni.</p>
+        )}
+      </section>
 
       {/* Chiuso di default: si apre quando serve, senza spingere giù il lavoro del giorno. */}
       <details className="card questionario-card" id="questionario">
@@ -265,7 +326,7 @@ export default async function Dashboard({
                 return (
                   <li key={grant.id}>
                     <Link
-                      href={`/?bando=${encodeURIComponent(grant.id)}#clienti`}
+                      href={bandoHref(grant.id)}
                       className={current ? "work-row current" : "work-row"}
                       aria-current={current ? "true" : undefined}
                       scroll={false}

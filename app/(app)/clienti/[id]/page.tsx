@@ -4,12 +4,10 @@ import { notFound } from "next/navigation";
 import { DeleteCustomerButton } from "@/components/delete-customer";
 import { CustomerEditForm } from "@/components/customer-edit-form";
 import { StatusBadge } from "@/components/status-badge";
-import { getActiveGrants, getCustomer, getDeMinimis, listCustomerFiles } from "@/lib/data";
+import { getActiveGrants, getCustomer, listCustomerFiles } from "@/lib/data";
 import { createAllegatiToken } from "@/lib/auth";
 import { AllegatiPanel } from "@/components/allegati-panel";
-import { DeMinimisPanel } from "@/components/de-minimis-panel";
 import { scoreAll } from "@/lib/scoring";
-import { normalizzaCf } from "@/lib/visura";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +36,6 @@ export default async function CustomerDetail({
 
   const matches = scoreAll(customer, await getActiveGrants(10000));
   const files = await listCustomerFiles(customer.id);
-  const cf = normalizzaCf(customer.anagrafica?.codice_fiscale);
-  const deMinimis = await getDeMinimis(cf);
   const allegatiToken = await createAllegatiToken(customer.id);
 
   return (
@@ -52,6 +48,7 @@ export default async function CustomerDetail({
         </div>
         <div className="actions">
           <Link className="btn secondary" href={`/bandi?customer=${customer.id}`}>Verifica su bandi</Link>
+          <Link className="btn secondary" href={`/?cliente=${customer.id}#de-minimis`}>Aiuti De Minimis</Link>
           <Link className="btn secondary" href={`/api/export/matches?customerId=${customer.id}`}>Esporta match CSV</Link>
           <DeleteCustomerButton id={customer.id} />
         </div>
@@ -84,13 +81,6 @@ export default async function CustomerDetail({
       <section className="card">
         <h2>Allegati per i bandi</h2>
         <AllegatiPanel customerId={customer.id} files={files} />
-      </section>
-
-      <div style={{ height: 18 }} />
-
-      <section className="card">
-        <h2>Aiuti De Minimis (RNA)</h2>
-        <DeMinimisPanel cf={cf} dati={deMinimis} />
       </section>
 
       <div style={{ height: 18 }} />
