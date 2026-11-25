@@ -1,4 +1,5 @@
 import { get } from "node:https";
+import { codiciBando } from "@/lib/ateco";
 import type { Grant } from "@/lib/types";
 
 // Il sito blocca le connessioni da fuori Europa (ETIMEDOUT dagli USA): per questo in vercel.json
@@ -105,7 +106,7 @@ function mapDoc(doc: Record<string, unknown>): Grant {
     status: inferStatus(opening, deadline),
     regions: regions.length ? regions : ["ITALIA"],
     sizes: sizes.length ? sizes : ["*"],
-    ateco_filter: ["*"],
+    ateco_filter: codiciBando(text(doc, "Codici_ATECO")),
     topics,
     invest_min_eur: min,
     invest_max_eur: max,

@@ -71,6 +71,8 @@ export type MatchResult = {
   score_investimento: number;
   score_tempistica: number;
   score_totale: number;
+  /** Il bando elenca gli ATECO ammessi e nessuno è del cliente. */
+  ateco_escluso: boolean;
   classe: "ALTA" | "MEDIA" | "BASSA";
 };
 

@@ -1,6 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
+import { codiciCliente } from "@/lib/ateco";
 import { getCustomers, getGrantRegions, getGrants } from "@/lib/data";
 import { scoreGrant } from "@/lib/scoring";
 import { SYNC_SOURCES } from "@/lib/sync-sources";
@@ -29,12 +30,23 @@ export default async function GrantsPage({
   const region = typeof params.region === "string" ? params.region : "";
   const customerId = typeof params.customer === "string" ? params.customer : "";
 
-  const [grants, regions, customers] = await Promise.all([
+  const tuttiAteco = params.ateco === "tutti";
+
+  const [all, regions, customers] = await Promise.all([
     getGrants({ search: q, source, status, region, limit: 5000 }),
     getGrantRegions(),
     getCustomers(),
   ]);
   const customer = customers.find((c) => c.id === customerId);
+  // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
+  const scored = all.map((grant) => ({ grant, match: customer && scoreGrant(customer, grant) }));
+  const esclusi = scored.filter((s) => s.match?.ateco_escluso).length;
+  const shown = tuttiAteco ? scored : scored.filter((s) => !s.match?.ateco_escluso);
+  const codiceAteco = customer && (customer.ateco || customer.anagrafica?.ateco);
+  const conAteco = codiciCliente(codiceAteco).length > 0;
+  const atecoHref = `/bandi?${new URLSearchParams({
+    q, region, source, status, customer: customerId, ...(tuttiAteco ? {} : { ateco: "tutti" }),
+  })}`;
   const filtered = Boolean(q || source || status || region || customerId);
 
   return (
@@ -88,10 +100,24 @@ export default async function GrantsPage({
       </form>
 
       <p className="result-count">
-        <strong>{grants.length}</strong> {grants.length === 1 ? "bando" : "bandi"}
+        <strong>{shown.length}</strong> {shown.length === 1 ? "bando" : "bandi"}
         {region && <> per <strong>{region}</strong> (inclusi i bandi nazionali)</>}
         {customer && <> · match calcolato per <Link href={`/clienti/${customer.id}`}><strong>{customer.ragione_sociale}</strong></Link></>}
+        {conAteco && <> · ATECO {codiceAteco}</>}
+        {esclusi > 0 && (
+          <>
+            {" · "}{esclusi} per altri ATECO {tuttiAteco ? "in elenco" : "nascosti"}{" "}
+            (<Link className="title-link" href={atecoHref}>{tuttiAteco ? "nascondi" : "mostra"}</Link>)
+          </>
+        )}
       </p>
+      {customer && (
+        <p className="muted small">
+          {conAteco
+            ? "I codici ATECO ammessi arrivano solo da Incentivi.gov.it: i bandi per tutti i settori e quelli delle altre fonti restano in elenco."
+            : <>Questo cliente non ha un codice ATECO leggibile: i bandi non sono filtrati per ATECO. <Link className="title-link" href={`/clienti/${customer.id}`}>Aggiungilo nella scheda cliente</Link>.</>}
+        </p>
+      )}
 
       <div className="table-wrap">
         <table>
@@ -106,9 +132,7 @@ export default async function GrantsPage({
             </tr>
           </thead>
           <tbody>
-            {grants.map((grant) => {
-              // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
-              const match = customer && scoreGrant(customer, grant);
+            {shown.map(({ grant, match }) => {
               const places = territory(grant.regions);
               return (
               <tr key={grant.id}>
@@ -142,7 +166,7 @@ export default async function GrantsPage({
               </tr>
               );
             })}
-            {!grants.length && <tr><td colSpan={customer ? 6 : 5} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
+            {!shown.length && <tr><td colSpan={customer ? 6 : 5} className="muted empty">Nessun bando trovato con questi filtri.</td></tr>}
           </tbody>
         </table>
       </div>

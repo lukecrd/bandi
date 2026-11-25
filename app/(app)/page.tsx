@@ -17,7 +17,7 @@ import {
   getRecentSyncRuns,
   MATCHES_TAG,
 } from "@/lib/data";
-import { minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
+import { isMatch, minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
 import { sourceLabel } from "@/lib/sync-sources";
 import type { Customer, Grant, MatchResult } from "@/lib/types";
 import { normalizzaCf } from "@/lib/visura";
@@ -89,7 +89,7 @@ const getMatchCounts = unstable_cache(
   async (min: number) => {
     const [grants, customers] = await Promise.all([getActiveGrants(5000), getCustomers()]);
     const rows = grants.flatMap((g) => {
-      const matches = customers.map((c) => scoreGrant(c, g)).filter((m) => m.score_totale >= min);
+      const matches = customers.map((c) => scoreGrant(c, g)).filter((m) => isMatch(m, min));
       if (!matches.length) return [];
       const grant: GrantSummary = {
         id: g.id, title: g.title, source: g.source, regions: g.regions,
@@ -182,7 +182,7 @@ export default async function Dashboard({
   const interested = selected
     ? customers
         .map((customer) => ({ customer, match: scoreGrant(customer, selected) }))
-        .filter((s) => s.match.score_totale >= min)
+        .filter((s) => isMatch(s.match, min))
     : [];
   const groups = profiles(interested);
   const shown = work.slice(0, MAX_GRANTS);

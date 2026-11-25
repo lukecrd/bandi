@@ -1,3 +1,4 @@
+import { atecoAmmesso, codiciCliente } from "@/lib/ateco";
 import type { Customer, Grant, MatchResult } from "@/lib/types";
 
 export const SCORE_WEIGHTS = {
@@ -31,17 +32,6 @@ function sizeMatches(customerSize: string, allowed: string[]) {
   });
 }
 
-function atecoMatches(ateco: string | null, filters: string[]) {
-  if (!filters.length || filters.includes("*")) return true;
-  if (!ateco) return false;
-  const compact = ateco.replace(/\s/g, "");
-  const prefix2 = compact.slice(0, 2);
-  return filters.some((filter) => {
-    const f = String(filter).replace(/\s/g, "");
-    return f === compact || f === prefix2 || compact.startsWith(f);
-  });
-}
-
 export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   const regionText = grant.regions.map(norm);
   const customerRegion = norm(customer.regione);
@@ -55,9 +45,10 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     ? SCORE_WEIGHTS.dimensione
     : 0;
 
-  const score_ateco = atecoMatches(customer.ateco, grant.ateco_filter)
-    ? SCORE_WEIGHTS.ateco
-    : 0;
+  // l'ATECO letto dalla visura vale se quello della scheda manca
+  const ammesso = atecoAmmesso(codiciCliente(customer.ateco || customer.anagrafica?.ateco), grant.ateco_filter);
+  const apertoATutti = !grant.ateco_filter.length || grant.ateco_filter.includes("*");
+  const score_ateco = ammesso || apertoATutti ? SCORE_WEIGHTS.ateco : 0;
 
   let themePoints = 0;
   if (
@@ -130,6 +121,7 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     score_investimento,
     score_tempistica,
     score_totale,
+    ateco_escluso: ammesso === false,
     classe,
   };
 }
@@ -138,11 +130,16 @@ export function minMatchScore() {
   return Number(process.env.MATCH_MIN_SCORE ?? 50);
 }
 
+/** Sopra soglia e con un ATECO ammesso: il punteggio da solo non esclude un settore vietato. */
+export function isMatch(match: MatchResult, min: number) {
+  return !match.ateco_escluso && match.score_totale >= min;
+}
+
 export function scoreAll(customer: Customer, grants: Grant[]) {
   const minScore = minMatchScore();
   return grants
     .map((grant) => scoreGrant(customer, grant))
-    .filter((match) => match.score_totale >= minScore)
+    .filter((match) => isMatch(match, minScore))
     .sort((a, b) => {
       if (b.score_totale !== a.score_totale) return b.score_totale - a.score_totale;
       const ad = a.grant.deadline ? new Date(a.grant.deadline).getTime() : Infinity;
