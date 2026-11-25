@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Titillium_Web } from "next/font/google";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 
-const titillium = Titillium_Web({ subsets: ["latin"], weight: ["300", "400", "600", "700"] });
+// Asse wdth: titoli e numeri allargati, testo a larghezza normale, con una sola famiglia.
+const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"] });
 
 export const metadata: Metadata = {
   title: "BandiMatch",
@@ -13,7 +14,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="it" className={titillium.className}>
+    <html lang="it" className={archivo.className}>
       <body>{children}</body>
     </html>
   );

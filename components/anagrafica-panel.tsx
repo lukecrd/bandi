@@ -144,7 +144,7 @@ export function AnagraficaPanel({ customerId, initial, dimensione, allegatiToken
                     const data = dataNascitaDaCf((form.lr_codice_fiscale ?? "").trim().toUpperCase());
                     if (data) setForm({ ...form, lr_data_nascita: data });
                   } : undefined}
-                  style={isNew ? { borderColor: "#12b76a", background: "var(--green-soft)" } : undefined}
+                  style={isNew ? { borderColor: "var(--green)", background: "var(--green-soft)" } : undefined}
                 />
               </div>
             );

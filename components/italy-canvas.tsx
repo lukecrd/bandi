@@ -12,8 +12,9 @@ type Particle = {
   phase: number;
 };
 
-const INK = "74, 58, 156";   // --brand
-const STAMP = "192, 57, 43"; // --margin
+// Sul fondo --ink: punti nell'accento, regioni con bandi in bianco.
+const DOT = "126, 162, 255"; // --ink-accent
+const HOT = "255, 255, 255";
 
 function seeded(seed: number) {
   return () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -83,12 +84,12 @@ export function ItalyCanvas({ counts }: { counts: Record<string, number> }) {
         const x = mapLeft + r.x * mapH;
         const y = mapTop + r.y * mapH;
         const pulse = reduce ? 0.5 : (t / 1900 + i * 0.137) % 1;
-        ctx!.strokeStyle = `rgba(${STAMP}, ${alpha * (1 - pulse) * 0.55})`;
+        ctx!.strokeStyle = `rgba(${DOT}, ${alpha * (1 - pulse) * 0.55})`;
         ctx!.lineWidth = 1;
         ctx!.beginPath();
         ctx!.arc(x, y, 3 + pulse * (i === focus ? 20 : 12), 0, Math.PI * 2);
         ctx!.stroke();
-        ctx!.fillStyle = `rgba(${STAMP}, ${alpha})`;
+        ctx!.fillStyle = `rgba(${HOT}, ${alpha})`;
         ctx!.beginPath();
         ctx!.arc(x, y, i === focus ? 3.2 : 2.2, 0, Math.PI * 2);
         ctx!.fill();
@@ -102,11 +103,17 @@ export function ItalyCanvas({ counts }: { counts: Record<string, number> }) {
       const lx = x + (right ? 14 : -14);
       ctx!.textAlign = right ? "left" : "right";
       ctx!.textBaseline = "middle";
-      ctx!.font = `700 12px ${fontFamily}`;
-      ctx!.fillStyle = `rgba(28, 35, 51, ${fade})`;
-      ctx!.fillText(r.name.toUpperCase(), lx, y - 10);
+      // Alone scuro: le etichette cadono anche sui puntini.
+      ctx!.strokeStyle = `rgba(10, 15, 26, ${fade})`; // --ink
+      ctx!.lineWidth = 6;
+      ctx!.lineJoin = "round";
+      ctx!.font = `600 13px ${fontFamily}`;
+      ctx!.strokeText(r.name, lx, y - 10);
+      ctx!.fillStyle = `rgba(${HOT}, ${fade})`;
+      ctx!.fillText(r.name, lx, y - 10);
       ctx!.font = `600 12px ${fontFamily}`;
-      ctx!.fillStyle = `rgba(${STAMP}, ${fade})`;
+      ctx!.fillStyle = `rgba(${DOT}, ${fade})`;
+      ctx!.strokeText(`${r.n.toLocaleString("it-IT")} bandi`, lx, y + 10);
       ctx!.fillText(`${r.n.toLocaleString("it-IT")} bandi`, lx, y + 10);
     }
 
@@ -122,7 +129,7 @@ export function ItalyCanvas({ counts }: { counts: Record<string, number> }) {
         p.a += (p.ta - p.a) * (reduce ? 1 : 0.05);
         const drift = reduce ? 0 : Math.sin(t * 0.0012 + p.phase) * 0.5;
         const s = p.coast ? 1.6 : 1.3;
-        ctx!.fillStyle = `rgba(${INK}, ${p.a})`;
+        ctx!.fillStyle = `rgba(${DOT}, ${p.a})`;
         ctx!.fillRect(p.x + drift, p.y - drift * 0.5, s, s);
       }
       // Le regioni compaiono quando la sagoma è quasi formata.

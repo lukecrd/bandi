@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { NewGrant } from "@/lib/data";
@@ -62,7 +63,7 @@ export function NewGrantsAlert() {
         {data.grants.map((g) => (
           <li key={g.id}>
             {g.url
-              ? <a className="title-link" href={g.url} target="_blank" rel="noreferrer">{g.title} ↗</a>
+              ? <a className="title-link" href={g.url} target="_blank" rel="noreferrer">{g.title}<ArrowUpRight size={15} strokeWidth={1.75} className="ext" aria-hidden="true" /></a>
               : <strong>{g.title}</strong>}
             <div className="muted small">
               {g.source} · {g.regions.includes("ITALIA") ? "Nazionale" : g.regions.join(", ")} · Scad. {date(g.deadline)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageSquare, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Chat } from "@/components/chat";
 
@@ -29,7 +30,7 @@ export function ChatWidget() {
             <strong id="chat-panel-title">Assistente</strong>
             <p className="muted small">Risposte generate da AI: verifica sempre sul bando originale.</p>
           </div>
-          <button type="button" className="btn ghost" onClick={() => setOpen(false)} aria-label="Chiudi assistente">✕</button>
+          <button type="button" className="btn ghost" onClick={() => setOpen(false)} aria-label="Chiudi assistente"><X size={18} strokeWidth={1.75} aria-hidden="true" /></button>
         </div>
         <Chat />
       </div>
@@ -42,7 +43,7 @@ export function ChatWidget() {
         aria-controls="chat-panel"
         aria-label={open ? "Chiudi assistente" : "Apri assistente"}
       >
-        {open ? "✕" : "💬"}
+        {open ? <X size={24} strokeWidth={1.75} aria-hidden="true" /> : <MessageSquare size={24} strokeWidth={1.75} aria-hidden="true" />}
       </button>
     </>
   );

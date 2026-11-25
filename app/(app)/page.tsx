@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { DeMinimisPanel } from "@/components/de-minimis-panel";
@@ -371,7 +372,7 @@ export default async function Dashboard({
               <p className="selected-grant">
                 {selected.url ? (
                   <a className="title-link" href={selected.url} target="_blank" rel="noreferrer">
-                    {selected.title} ↗<span className="sr-only"> (si apre in una nuova scheda)</span>
+                    {selected.title}<ArrowUpRight size={15} strokeWidth={1.75} className="ext" aria-hidden="true" /><span className="sr-only"> (si apre in una nuova scheda)</span>
                   </a>
                 ) : (
                   <strong>{selected.title}</strong>

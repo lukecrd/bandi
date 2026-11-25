@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { getCustomers, getGrantRegions, getGrants } from "@/lib/data";
@@ -123,7 +124,7 @@ export default async function GrantsPage({
                 <td><StatusBadge value={grant.status} /></td>
                 <td className="title-cell">
                   {grant.url
-                    ? <a className="title-link" href={grant.url} target="_blank" rel="noreferrer">{grant.title} ↗</a>
+                    ? <a className="title-link" href={grant.url} target="_blank" rel="noreferrer">{grant.title}<ArrowUpRight size={15} strokeWidth={1.75} className="ext" aria-hidden="true" /></a>
                     : <strong>{grant.title}</strong>}
                   <div className="muted small">{grant.ente || "—"}</div>
                   {grant.topics.length > 0 && (

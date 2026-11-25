@@ -1,5 +1,6 @@
 "use client";
 
+import { Mic, Square, Volume2 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -188,7 +189,7 @@ export function Chat() {
               {m.role === "user" ? "Tu" : "Assistente"}
               {m.role === "assistant" && canSpeak && (
                 <button type="button" className="btn ghost small" onClick={() => speak(m.content, voice)} aria-label="Leggi questa risposta ad alta voce">
-                  🔊 Ascolta
+                  <Volume2 size={15} strokeWidth={1.75} aria-hidden="true" /> Ascolta
                 </button>
               )}
             </div>
@@ -224,7 +225,8 @@ export function Chat() {
             aria-pressed={listening}
             aria-label={listening ? "Interrompi dettatura" : "Detta la domanda"}
           >
-            {listening ? "⏹ Stop" : "🎤 Detta"}
+            {listening ? <Square size={15} strokeWidth={1.75} aria-hidden="true" /> : <Mic size={15} strokeWidth={1.75} aria-hidden="true" />}
+            {listening ? "Stop" : "Detta"}
           </button>
         )}
         <button className="btn" disabled={busy || !input.trim()}>Invia</button>
