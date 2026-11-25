@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getActiveGrants, getCustomer, getCustomers } from "@/lib/data";
+import { datiMancanti } from "@/lib/questionario";
 import { scoreAll } from "@/lib/scoring";
 import type { Customer, Grant } from "@/lib/types";
 
@@ -81,7 +82,7 @@ const TOOLS = [
   {
     name: "match_cliente",
     description:
-      "Restituisce i bandi attivi più adatti a un cliente, calcolati con il punteggio di matching dell'app (0-100: regione 25, dimensione 15, ATECO 25, temi 15, investimento 10, tempistica 10; classe ALTA >= 75, MEDIA >= 50). Sono già tolti i bandi a cui il cliente non può partecipare per regione, beneficiari o settore ATECO. Serve l'id ottenuto da cerca_clienti.",
+      "Restituisce i bandi attivi più adatti a un cliente, solo quelli a cui può partecipare e che hanno un legame con lui (campo motivi: settore ATECO, temi, territorio). Se dati_mancanti non è vuoto, chiedi quei dati prima di dire che non ci sono bandi. Serve l'id ottenuto da cerca_clienti.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -180,6 +181,7 @@ async function matchCliente(raw: unknown) {
   const matches = scoreAll(customer, await getActiveGrants(10000));
   return {
     cliente: customerProfile(customer),
+    dati_mancanti: datiMancanti(customer),
     totale_match: matches.length,
     bandi: matches.slice(0, limite ?? 10).map(({ grant, ...score }) => ({ ...score, bando: compactGrant(grant) })),
   };

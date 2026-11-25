@@ -2,8 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { ITALY_REGIONS } from "@/lib/italy-points";
+import type { DatoMancante } from "@/lib/questionario";
 
-/** Solo i campi che servono al questionario: niente anagrafica completa (IBAN, documenti) nel browser. */
 export type QuestionarioCliente = {
   id: string;
   external_id: string;
@@ -24,6 +24,7 @@ export type QuestionarioCliente = {
   export: boolean;
   formazione: boolean;
   note: string | null;
+  mancanti: DatoMancante[];
 };
 
 const REGIONI = ITALY_REGIONS.map((r) => r.name).sort((a, b) => a.localeCompare(b, "it"));
@@ -71,12 +72,26 @@ const str = (v: number | string | null | undefined) => (v === null || v === unde
 const regionKey = (name: string) => name.split("/")[0].toLowerCase().replace(/-/g, " ").trim();
 const canonicalRegion = (name: string) => REGIONI.find((r) => regionKey(r) === regionKey(name)) ?? "";
 
-export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
-  const [clienteId, setClienteId] = useState("");
-  const [form, setForm] = useState(VUOTO);
-  const [interessi, setInteressi] = useState<Record<Interesse, boolean>>(
-    Object.fromEntries(INTERESSI.map((i) => [i.key, false])) as Record<Interesse, boolean>
-  );
+function valori(c: QuestionarioCliente | undefined) {
+  if (!c) return VUOTO;
+  return {
+    ragione_sociale: c.ragione_sociale, partita_iva: c.partita_iva, regione: canonicalRegion(c.regione),
+    provincia: str(c.provincia), ateco: str(c.ateco),
+    dimensione: c.mancanti.includes("dimensione") ? "" : c.dimensione,
+    dipendenti: str(c.dipendenti), fatturato_eur: str(c.fatturato_eur),
+    investimento_previsto_eur: str(c.investimento_previsto_eur), note: str(c.note),
+  };
+}
+
+const scelte = (c: QuestionarioCliente | undefined) =>
+  Object.fromEntries(INTERESSI.map((i) => [i.key, c?.[i.key] ?? false])) as Record<Interesse, boolean>;
+
+/** Con `solo` chiede a quel cliente soltanto i dati che mancano. */
+export function Questionario({ clienti, solo }: { clienti: QuestionarioCliente[]; solo?: QuestionarioCliente }) {
+  const [clienteId, setClienteId] = useState(solo?.id ?? "");
+  const [form, setForm] = useState(() => valori(solo));
+  const [interessi, setInteressi] = useState(() => scelte(solo));
+  const chiedi = (dato: DatoMancante) => !solo || solo.mancanti.includes(dato);
   // La dimensione segue i numeri finché l'utente non la sceglie a mano.
   const [sizeTouched, setSizeTouched] = useState(false);
   const [error, setError] = useState("");
@@ -89,21 +104,8 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
     setClienteId(id);
     setError("");
     const c = clienti.find((x) => x.id === id);
-    if (!c) {
-      setForm(VUOTO);
-      setInteressi(Object.fromEntries(INTERESSI.map((i) => [i.key, false])) as Record<Interesse, boolean>);
-      setSizeTouched(false);
-      return;
-    }
-    setForm({
-      ragione_sociale: c.ragione_sociale, partita_iva: c.partita_iva, regione: canonicalRegion(c.regione),
-      provincia: str(c.provincia), ateco: str(c.ateco),
-      // "Micro" è il valore di default dell'import: se non ci sono numeri non lo consideriamo una risposta.
-      dimensione: c.dipendenti === null && c.fatturato_eur === null && c.dimensione === "Micro" ? "" : c.dimensione,
-      dipendenti: str(c.dipendenti), fatturato_eur: str(c.fatturato_eur),
-      investimento_previsto_eur: str(c.investimento_previsto_eur), note: str(c.note),
-    });
-    setInteressi(Object.fromEntries(INTERESSI.map((i) => [i.key, c[i.key]])) as Record<Interesse, boolean>);
+    setForm(valori(c));
+    setInteressi(scelte(c));
     setSizeTouched(false);
   }
 
@@ -126,6 +128,10 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
       setError("La partita IVA deve avere 11 cifre.");
       return;
     }
+    if (solo?.mancanti.includes("temi") && !Object.values(interessi).some(Boolean)) {
+      setError("Indica almeno una cosa che vorrebbe finanziare.");
+      return;
+    }
     if (!form.dimensione) {
       setError("Indica che tipo di soggetto è (micro, piccola, media impresa…).");
       return;
@@ -135,7 +141,8 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
     const body = {
       external_id: cliente?.external_id ?? `Q-${Date.now().toString(36).toUpperCase()}`,
       ragione_sociale: form.ragione_sociale.trim(),
-      regione: form.regione,
+      // più regioni ("Toscana, Lazio") non stanno nel menu: resta quella salvata
+      regione: form.regione || cliente?.regione || "",
       provincia: form.provincia.trim(),
       ateco: form.ateco.trim(),
       dimensione: form.dimensione,
@@ -165,15 +172,17 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
 
   return (
     <form onSubmit={submit} className="questionario">
-      <fieldset>
-        <legend>1. Azienda</legend>
+      {!solo && <fieldset>
+        <legend>Azienda</legend>
         <div className="form-grid">
           <div className="field full">
             <label htmlFor="q-cliente">Per quale cliente?</label>
             <select id="q-cliente" value={clienteId} onChange={(e) => scegliCliente(e.target.value)}>
               <option value="">Nuova azienda</option>
               {clienti.map((c) => (
-                <option key={c.id} value={c.id}>{c.ragione_sociale}</option>
+                <option key={c.id} value={c.id}>
+                  {c.ragione_sociale}{c.mancanti.length > 0 && ` · mancano: ${c.mancanti.join(", ")}`}
+                </option>
               ))}
             </select>
           </div>
@@ -188,10 +197,10 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
             <span id="q-piva-hint" className="muted small">Serve per i controlli in visura e sui portali dei bandi.</span>
           </div>
         </div>
-      </fieldset>
+      </fieldset>}
 
-      <fieldset>
-        <legend>2. Dove opera</legend>
+      {chiedi("territorio") && <fieldset>
+        <legend>Dove opera</legend>
         <div className="form-grid">
           <div className="field">
             <label htmlFor="q-regione">Regione della sede operativa</label>
@@ -202,17 +211,17 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
           </div>
           <div className="field">
             <label htmlFor="q-provincia">Provincia</label>
-            <input id="q-provincia" value={form.provincia} onChange={(e) => set("provincia", e.target.value)} placeholder="es. Firenze o FI" />
+            <input id="q-provincia" value={form.provincia} onChange={(e) => set("provincia", e.target.value)} placeholder="es. Firenze o FI" required={!!solo} />
           </div>
         </div>
-      </fieldset>
+      </fieldset>}
 
-      <fieldset>
-        <legend>3. Dimensione</legend>
+      {chiedi("dimensione") && <fieldset>
+        <legend>Dimensione</legend>
         <div className="form-grid">
           <div className="field">
             <label htmlFor="q-dipendenti">Quante persone ci lavorano?</label>
-            <input id="q-dipendenti" type="number" min="0" value={form.dipendenti} onChange={(e) => set("dipendenti", e.target.value)} />
+            <input id="q-dipendenti" type="number" min="0" required={!!solo} value={form.dipendenti} onChange={(e) => set("dipendenti", e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="q-fatturato">Fatturato annuo (€)</label>
@@ -232,19 +241,19 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
             </label>
           ))}
         </div>
-      </fieldset>
+      </fieldset>}
 
-      <fieldset>
-        <legend>4. Settore</legend>
+      {chiedi("ATECO") && <fieldset>
+        <legend>Settore</legend>
         <div className="field">
           <label htmlFor="q-ateco">Codice ATECO</label>
-          <input id="q-ateco" value={form.ateco} onChange={(e) => set("ateco", e.target.value)} placeholder="es. 62.01 oppure 25" aria-describedby="q-ateco-hint" />
+          <input id="q-ateco" value={form.ateco} onChange={(e) => set("ateco", e.target.value)} placeholder="es. 62.01 oppure 25" required={!!solo} pattern="\s*\d{2}[\d.\s,;\/]*" title="Almeno le prime due cifre, es. 56 o 56.30.01" aria-describedby="q-ateco-hint" />
           <span id="q-ateco-hint" className="muted small">Si trova in visura camerale. Bastano le prime due cifre se non si conosce il codice completo.</span>
         </div>
-      </fieldset>
+      </fieldset>}
 
-      <fieldset>
-        <legend>5. Progetti nei prossimi 12 mesi</legend>
+      {chiedi("temi") && <fieldset>
+        <legend>Progetti nei prossimi 12 mesi</legend>
         <div className="choice-list">
           <p className="field-title">Cosa vorrebbe finanziare?</p>
           {INTERESSI.map((i) => (
@@ -264,7 +273,7 @@ export function Questionario({ clienti }: { clienti: QuestionarioCliente[] }) {
             <input id="q-note" value={form.note} onChange={(e) => set("note", e.target.value)} placeholder="es. impresa femminile, startup, under 35" />
           </div>
         </div>
-      </fieldset>
+      </fieldset>}
 
       {error && <div className="error" role="alert">{error}</div>}
       <div className="actions">

@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const rows = [
     [
-      "ID cliente","Cliente","Score","Classe","ID bando","Titolo","Ente",
+      "ID cliente","Cliente","Score","Perché si adatta","ID bando","Titolo","Ente",
       "Fonte","Stato","Scadenza","URL","Regione","Dimensione","ATECO",
       "Temi","Investimento","Tempistica"
     ],
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       customer.external_id,
       customer.ragione_sociale,
       m.score_totale,
-      m.classe,
+      m.motivi.join(", "),
       m.grant.id,
       m.grant.title,
       m.grant.ente,

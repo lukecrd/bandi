@@ -73,7 +73,8 @@ export type MatchResult = {
   score_totale: number;
   /** Perché il cliente non può partecipare; vuoto = nessun motivo noto. */
   esclusioni: string[];
-  classe: "ALTA" | "MEDIA" | "BASSA";
+  /** Perché il bando si adatta proprio a questo cliente; vuoto = ammesso ma generico, non si propone. */
+  motivi: string[];
 };
 
 export type { SyncSource } from "@/lib/sync-sources";

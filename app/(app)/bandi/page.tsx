@@ -1,8 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
-import { codiciCliente } from "@/lib/ateco";
 import { getCustomers, getGrantRegions, getGrants } from "@/lib/data";
+import { datiMancanti } from "@/lib/questionario";
 import { scoreGrant } from "@/lib/scoring";
 import { SYNC_SOURCES } from "@/lib/sync-sources";
 
@@ -38,13 +38,12 @@ export default async function GrantsPage({
     getCustomers(),
   ]);
   const customer = customers.find((c) => c.id === customerId);
-  // nessuna soglia minima: qui si verifica il singolo bando, anche se il match è basso
   const scored = all.map((grant) => ({ grant, match: customer && scoreGrant(customer, grant) }));
-  const adatti = scored.filter((s) => !s.match?.esclusioni.length);
+  const adatti = scored.filter((s) => !s.match || (!s.match.esclusioni.length && s.match.motivi.length));
   const esclusi = scored.length - adatti.length;
   const shown = mostraEsclusi ? scored : adatti;
   const codiceAteco = customer && (customer.ateco || customer.anagrafica?.ateco);
-  const conAteco = codiciCliente(codiceAteco).length > 0;
+  const mancanti = customer ? datiMancanti(customer) : [];
   const esclusiHref = `/bandi?${new URLSearchParams({
     q, region, source, status, customer: customerId, ...(mostraEsclusi ? {} : { esclusi: "mostra" }),
   })}`;
@@ -104,7 +103,7 @@ export default async function GrantsPage({
         <strong>{shown.length}</strong> {shown.length === 1 ? "bando" : "bandi"}
         {region && <> per <strong>{region}</strong> (inclusi i bandi nazionali)</>}
         {customer && <> · match calcolato per <Link href={`/clienti/${customer.id}`}><strong>{customer.ragione_sociale}</strong></Link></>}
-        {conAteco && <> · ATECO {codiceAteco}</>}
+        {codiceAteco && <> · ATECO {codiceAteco}</>}
         {esclusi > 0 && (
           <>
             {" · "}{esclusi} non adatti {mostraEsclusi ? "in elenco" : "nascosti"}{" "}
@@ -112,18 +111,18 @@ export default async function GrantsPage({
           </>
         )}
       </p>
-      {customer && (
-        <p className="muted small">
-          {!mostraEsclusi && "Nascosti i bandi per altre regioni, altri beneficiari o altri settori. "}
-          {!conAteco && <>Questo cliente non ha un codice ATECO leggibile: restano solo i bandi per tutti i settori. <Link className="title-link" href={`/clienti/${customer.id}`}>Aggiungilo nella scheda cliente</Link>.</>}
-        </p>
+      {mancanti.length > 0 && (
+        <div className="notice" style={{ marginBottom: 12 }}>
+          <b>Per trovare i bandi giusti per questo cliente servono: {mancanti.join(", ")}.</b>{" "}
+          <Link className="title-link" href={`/clienti/${customerId}#dati-mancanti`}>Rispondi alle domande</Link>
+        </div>
       )}
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              {customer && <th>Match</th>}
+              {customer && <th>Si adatta?</th>}
               <th>Stato</th>
               <th>Titolo</th>
               <th>Territorio</th>
@@ -137,13 +136,12 @@ export default async function GrantsPage({
               return (
               <tr key={grant.id}>
                 {match && (
-                  <td className={match.esclusioni.length ? undefined : "nowrap"}>
-                    <span className="score">{match.score_totale}</span>/100 <StatusBadge value={match.classe} />
-                    <div className="muted small" title="Regione · Dimensione · ATECO · Temi · Investimento · Tempistica">
-                      R {match.score_regione} · D {match.score_dimensione} · A {match.score_ateco} ·
-                      T {match.score_temi} · I {match.score_investimento} · C {match.score_tempistica}
-                    </div>
-                    {match.esclusioni.length > 0 && <div className="small">Non adatto: {match.esclusioni.join(", ")}</div>}
+                  <td className="small">
+                    {match.esclusioni.length
+                      ? <><span className="badge low">No</span> {match.esclusioni.join(", ")}</>
+                      : match.motivi.length
+                      ? <><span className="badge high">Sì</span> {match.motivi.join(", ")}</>
+                      : <><span className="badge">Generico</span> nessun legame con il cliente</>}
                   </td>
                 )}
                 <td><StatusBadge value={grant.status} /></td>

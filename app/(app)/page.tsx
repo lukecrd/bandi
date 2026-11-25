@@ -4,7 +4,7 @@ import { unstable_cache } from "next/cache";
 import { DeMinimisPanel } from "@/components/de-minimis-panel";
 import { Kpi } from "@/components/kpi";
 import { ItalyCanvas } from "@/components/italy-canvas";
-import { Questionario, type QuestionarioCliente } from "@/components/questionario";
+import { Questionario } from "@/components/questionario";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getActiveGrants,
@@ -17,7 +17,8 @@ import {
   getRecentSyncRuns,
   MATCHES_TAG,
 } from "@/lib/data";
-import { isMatch, minMatchScore, scoreGrant, SCORE_WEIGHTS } from "@/lib/scoring";
+import { isMatch, minMatchScore, scoreGrant } from "@/lib/scoring";
+import { questionarioCliente } from "@/lib/questionario";
 import { sourceLabel } from "@/lib/sync-sources";
 import type { Customer, Grant, MatchResult } from "@/lib/types";
 import { normalizzaCf } from "@/lib/visura";
@@ -28,15 +29,6 @@ const MAX_GRANTS = 10;
 const MAX_NAMES = 24;
 const MAX_AVVISI = 5;
 const DAY = 86_400_000;
-
-const CRITERIA = [
-  ["score_regione", "Regione", SCORE_WEIGHTS.regione],
-  ["score_dimensione", "Dimensione", SCORE_WEIGHTS.dimensione],
-  ["score_ateco", "ATECO", SCORE_WEIGHTS.ateco],
-  ["score_temi", "Temi", SCORE_WEIGHTS.temi],
-  ["score_investimento", "Investimento", SCORE_WEIGHTS.investimento],
-  ["score_tempistica", "Tempistica", SCORE_WEIGHTS.tempistica],
-] as const;
 
 type Scored = { customer: Customer; match: MatchResult };
 type GrantSummary = Pick<Grant, "id" | "title" | "source" | "regions" | "deadline" | "opening_date" | "status">;
@@ -95,11 +87,11 @@ const getMatchCounts = unstable_cache(
         id: g.id, title: g.title, source: g.source, regions: g.regions,
         deadline: g.deadline, opening_date: g.opening_date, status: g.status,
       };
-      return [{ grant, count: matches.length, high: matches.filter((m) => m.classe === "ALTA").length }];
+      return [{ grant, count: matches.length }];
     });
     return { rows, customers: customers.length };
   },
-  ["dashboard-match-counts-v2"] /* da cambiare con la logica del punteggio: la cache sopravvive ai deploy */,
+  ["dashboard-match-counts-v3"] /* da cambiare con la logica del punteggio: la cache sopravvive ai deploy */,
   { tags: [MATCHES_TAG] }
 );
 
@@ -118,19 +110,15 @@ function workList(rows: WorkRow[]) {
     .map((k) => k.row);
 }
 
-/** Clienti con gli stessi punti su ogni criterio sono indistinguibili: li mostriamo come un unico profilo. */
+/** Clienti a cui il bando si adatta per gli stessi motivi, prima quelli con più motivi. */
 function profiles(scored: Scored[]) {
-  const groups = Map.groupBy(scored, ({ match }) => CRITERIA.map(([key]) => match[key]).join("|"));
+  const groups = Map.groupBy(scored, ({ match }) => match.motivi.join("|"));
   return [...groups.values()]
     .map((members) => ({
       match: members[0].match,
       members: members.map((s) => s.customer).sort((a, b) => a.ragione_sociale.localeCompare(b.ragione_sociale, "it")),
     }))
-    .sort((a, b) =>
-      b.match.score_totale - a.match.score_totale ||
-      b.match.score_temi - a.match.score_temi ||
-      b.members.length - a.members.length
-    );
+    .sort((a, b) => b.match.motivi.length - a.match.motivi.length || b.members.length - a.members.length);
 }
 
 function ClientLinks({ members }: { members: Customer[] }) {
@@ -186,18 +174,9 @@ export default async function Dashboard({
     : [];
   const groups = profiles(interested);
   const shown = work.slice(0, MAX_GRANTS);
-  const questionarioClienti: QuestionarioCliente[] = customers
-    .map((c) => ({
-      id: c.id, external_id: c.external_id, ragione_sociale: c.ragione_sociale,
-      partita_iva: c.anagrafica?.partita_iva ?? "", regione: c.regione, provincia: c.provincia, ateco: c.ateco,
-      dimensione: c.dimensione, dipendenti: c.dipendenti, fatturato_eur: c.fatturato_eur,
-      investimento_previsto_eur: c.investimento_previsto_eur, digitale: c.digitale, green: c.green,
-      ricerca_sviluppo: c.ricerca_sviluppo, cloud_cyber: c.cloud_cyber, investimenti_beni: c.investimenti_beni,
-      export: c.export, formazione: c.formazione, note: c.note,
-    }))
+  const questionarioClienti = customers.map(questionarioCliente)
     .sort((a, b) => a.ragione_sociale.localeCompare(b.ragione_sociale, "it"));
-  // Profilo incompleto = mancano i dati che pesano di più nel punteggio.
-  const incomplete = customers.filter((c) => !c.regione || !c.ateco || (c.dipendenti === null && c.fatturato_eur === null)).length;
+  const incomplete = questionarioClienti.filter((c) => c.mancanti.length).length;
 
   // Un bando aperto via ?bando= può non essere tra i primi: lo aggiungiamo in coda.
   if (selected && !shown.some((w) => w.grant.id === selected.id)) {
@@ -274,7 +253,7 @@ export default async function Dashboard({
           <span className="questionario-title">Questionario: trova i bandi per un&apos;azienda</span>
           <span className="muted small">
             Pochi dati (sede, dimensione, ATECO, progetti) bastano a rendere il matching affidabile.
-            {incomplete > 0 && ` ${incomplete} clienti su ${customers.length} hanno ancora il profilo incompleto.`}
+            {incomplete > 0 && ` A ${incomplete} clienti su ${customers.length} mancano dati: sono segnati nell'elenco.`}
           </span>
         </summary>
         <Questionario clienti={questionarioClienti} />
@@ -314,7 +293,7 @@ export default async function Dashboard({
             <div>
               <h2 id="bandi-title">Bandi da lavorare</h2>
               <p className="muted small">
-                Bandi compatibili con una parte dei clienti. Prima quelli in scadenza, poi quelli con più clienti.
+                Bandi che si adattano ad alcuni clienti per settore, temi o territorio. Prima quelli in scadenza, poi quelli con più clienti.
               </p>
             </div>
             <Link href="/bandi">Tutti i bandi</Link>
@@ -322,7 +301,7 @@ export default async function Dashboard({
 
           {shown.length ? (
             <ol className="worklist">
-              {shown.map(({ grant, count, high }) => {
+              {shown.map(({ grant, count }) => {
                 const current = grant.id === selected?.id;
                 return (
                   <li key={grant.id}>
@@ -341,7 +320,6 @@ export default async function Dashboard({
                       </span>
                       <span className="work-count">
                         <strong>{count}</strong> {count === 1 ? "cliente" : "clienti"}
-                        {high > 0 && <span className="small"> · {high} alta</span>}
                       </span>
                     </Link>
                   </li>
@@ -351,9 +329,9 @@ export default async function Dashboard({
           ) : (
             <p className="muted">
               {generic > 0
-                ? "Tutti i bandi attivi sono compatibili con ogni cliente: il punteggio non li distingue."
+                ? "Tutti i bandi attivi si adattano a ogni cliente."
                 : customers.length
-                ? `Nessun bando attivo raggiunge il ${min}% di compatibilità con i clienti. Aggiorna le fonti o completa le schede cliente.`
+                ? "Nessun bando si adatta ai clienti con i dati che abbiamo. Completa i profili con il questionario e aggiorna le fonti."
                 : "Aggiungi i clienti per vedere quali bandi lavorare."}
             </p>
           )}
@@ -382,28 +360,19 @@ export default async function Dashboard({
                 </span>
               </p>
               <p className="result-count">
-                <strong>{interested.length}</strong> clienti su {customers.length} con compatibilità ≥ {min}%
-                {groups.length > 0 && `, in ${groups.length} ${groups.length === 1 ? "profilo" : "profili"}`}.
+                <strong>{interested.length}</strong> clienti su {customers.length} a cui si adatta
+                {groups.length > 0 && `, per ${groups.length} ${groups.length === 1 ? "motivo" : "motivi diversi"}`}.
               </p>
 
               {groups.length ? (
                 <ul className="profiles">
                   {groups.map(({ match: m, members }) => {
-                    const missing = CRITERIA.filter(([key, , max]) => m[key] < max);
                     return (
                       <li key={members[0].id} className="profile">
                         <div className="profile-head">
-                          <span className={`badge ${m.classe === "ALTA" ? "high" : "medium"}`}>{m.score_totale}%</span>
-                          <span className="profile-bar" aria-hidden="true"><i style={{ width: `${m.score_totale}%` }} /></span>
-                          <span className="small">
-                            <strong>{members.length}</strong> {members.length === 1 ? "cliente" : "clienti"}
-                          </span>
+                          <span className="small"><strong>{members.length}</strong> {members.length === 1 ? "cliente" : "clienti"}</span>
                         </div>
-                        <p className="muted small profile-gap">
-                          {missing.length
-                            ? <>Punti mancanti: {missing.map(([key, label, max]) => `${label} ${m[key]}/${max}`).join(" · ")}</>
-                            : "Tutti i criteri soddisfatti."}
-                        </p>
+                        <p className="small profile-gap">Si adatta per: {m.motivi.join(" · ")}</p>
                         <ClientLinks members={members} />
                       </li>
                     );
@@ -411,11 +380,11 @@ export default async function Dashboard({
                 </ul>
               ) : (
                 <p className="muted">
-                  Nessun cliente raggiunge il {min}% su questo bando. Scegli un altro bando dall&apos;elenco.
+                  Con i dati che abbiamo il bando non si adatta a nessun cliente. Scegline un altro o completa i profili.
                 </p>
               )}
               <p className="muted small">
-                La compatibilità misura quanto il bando è adatto al cliente, non la probabilità di ottenerlo.
+                Indica che il bando è pertinente per il cliente, non la probabilità di ottenerlo.
               </p>
             </>
           ) : (

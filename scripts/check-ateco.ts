@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { atecoAmmesso, codiciBando, codiciCliente } from "../lib/ateco";
 import { scoreAll, scoreGrant } from "../lib/scoring";
 import { settoriBandIntelligence, settoriContributiEuropa, settoriDaTitolo, settoriIncentivi, soloNonImprese } from "../lib/settori";
+import { datiMancanti } from "../lib/questionario";
 import { mapDoc } from "../lib/sources/incentivi";
 import type { Customer, Grant } from "../lib/types";
 
@@ -35,7 +36,7 @@ const bando = (ateco_filter: string[]) =>
   ({ title: "Bando di prova", regions: ["ITALIA"], sizes: ["*"], ateco_filter, topics: [], invest_min_eur: null, invest_max_eur: null, status: "Aperto", deadline: null }) as unknown as Grant;
 const vietato = bando(["55.1"]);
 assert.ok(scoreGrant(cliente, vietato).score_totale >= 50); // il solo punteggio non basta a escluderlo
-assert.deepEqual(scoreAll(cliente, [vietato, bando(["56"]), bando(["*"])]).map((m) => m.grant.ateco_filter[0]), ["56", "*"]);
+assert.deepEqual(scoreAll(cliente, [vietato, bando(["56"]), bando(["*"])]).map((m) => m.grant.ateco_filter[0]), ["56"]); // il generico non si propone
 // ATECO presente solo nella visura
 assert.equal(scoreGrant({ ...cliente, ateco: null, anagrafica: { ateco: "56.30.01" } }, vietato).esclusioni.length, 1);
 // senza ATECO restano solo i bandi per tutti i settori
@@ -43,7 +44,14 @@ assert.deepEqual(scoreGrant({ ...cliente, ateco: null }, vietato).esclusioni, ["
 assert.deepEqual(scoreGrant({ ...cliente, ateco: null }, bando(["*"])).esclusioni, []);
 // il bando del settore vale più di quello generico
 assert.ok(scoreGrant(cliente, bando(["56"])).score_totale > scoreGrant(cliente, bando(["*"])).score_totale);
-assert.equal(scoreGrant(cliente, bando(["56"])).classe, "ALTA");
+assert.deepEqual(scoreGrant(cliente, bando(["56"])).motivi, ["settore ATECO 56"]);
+assert.deepEqual(scoreGrant(cliente, bando(["*"])).motivi, []);
+assert.deepEqual(scoreGrant({ ...cliente, digitale: true }, { ...bando(["*"]), topics: ["digitale"] }).motivi, ["digitale"]);
+assert.deepEqual(scoreGrant({ ...cliente, provincia: "FI" }, { ...bando(["*"]), ente: "CCIAA Firenze" }).motivi, ["Camera di Commercio della sua provincia"]);
+// elenco di mezza economia: ammesso, ma non è un motivo
+assert.deepEqual(scoreGrant(cliente, bando(Array.from({ length: 40 }, (_, i) => String(i + 20)))).motivi, []);
+assert.deepEqual(datiMancanti({ ...cliente, provincia: null, dipendenti: null, fatturato_eur: null, ateco: null } as Customer), ["territorio", "dimensione", "ATECO", "temi"]);
+assert.deepEqual(datiMancanti({ ...cliente, provincia: "GR", dipendenti: 3, fatturato_eur: null, digitale: true } as Customer), []);
 
 const motivi = (g: Partial<Grant>, c: Partial<Customer> = {}) => scoreGrant({ ...cliente, ...c } as Customer, { ...bando(["*"]), ...g } as Grant).esclusioni;
 assert.deepEqual(motivi({ regions: ["Lazio"] }), ["altra regione"]);
@@ -65,7 +73,9 @@ assert.deepEqual(motivi({ ente: "Unione Regionale Delle Camere di Commercio dell
 assert.deepEqual(motivi({ regions: ["Toscana"] }, { regione: "", provincia: "MASSA-CARRARA" }), []);
 assert.deepEqual(motivi({ regions: ["Toscana"] }, { regione: "", provincia: null }), ["altra regione"]);
 assert.deepEqual(motivi({ level: "UE", topics: ["R&S"] }), ["call UE senza temi in comune"]);
-assert.deepEqual(motivi({ level: "UE", topics: ["R&S"] }, { ricerca_sviluppo: true }), []);
+assert.deepEqual(motivi({ level: "UE", topics: ["R&S"] }, { ricerca_sviluppo: true }), ["call UE senza temi in comune"]);
+assert.deepEqual(motivi({ level: "UE", topics: ["R&S", "digitale"] }, { ricerca_sviluppo: true, digitale: true }), []);
+assert.deepEqual(motivi({ invest_min_eur: 50000 }, { investimento_previsto_eur: 10000 }), ["investimento sotto il minimo"]);
 // "ai" non deve scattare dentro "aiuti"
 assert.equal(scoreGrant({ ...cliente, digitale: true }, { ...bando(["*"]), topics: ["aiuti"] }).score_temi, 0);
 

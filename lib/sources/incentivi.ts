@@ -102,10 +102,8 @@ export function mapDoc(doc: Record<string, unknown>): Grant {
   // i nomi di settore contengono virgole: niente fieldList, che li spezza
   const settori = Array.isArray(doc.Settore_Attivita) ? doc.Settore_Attivita.map(String) : [];
   const codici = codiciBando(text(doc, "Codici_ATECO"));
-  const topics = [
-    ...fieldList(doc, "Obiettivo_Finalita"),
-    ...settori,
-  ];
+  // i settori stanno in ateco_filter: come temi, "Fornitura Energia…" farebbe scattare il tema energia su tutto
+  const topics = fieldList(doc, "Obiettivo_Finalita");
 
   return {
     id: `IGOV-${rawId}`,

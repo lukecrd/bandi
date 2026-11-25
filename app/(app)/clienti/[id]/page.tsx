@@ -7,7 +7,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { getActiveGrants, getCustomer, listCustomerFiles } from "@/lib/data";
 import { createAllegatiToken } from "@/lib/auth";
 import { AllegatiPanel } from "@/components/allegati-panel";
-import { codiciCliente } from "@/lib/ateco";
+import { Questionario } from "@/components/questionario";
+import { questionarioCliente } from "@/lib/questionario";
 import { scoreAll } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function CustomerDetail({
 
   const matches = scoreAll(customer, await getActiveGrants(10000));
   const files = await listCustomerFiles(customer.id);
+  const domande = questionarioCliente(customer);
   const allegatiToken = await createAllegatiToken(customer.id);
 
   return (
@@ -57,12 +59,21 @@ export default async function CustomerDetail({
 
       <div className="grid kpis">
         <div className="kpi"><div className="label">Investimento previsto</div><div className="value">{money(customer.investimento_previsto_eur)}</div></div>
-        <div className="kpi"><div className="label">Match ALTA</div><div className="value">{matches.filter((m) => m.classe === "ALTA").length}</div></div>
-        <div className="kpi"><div className="label">Match MEDIA</div><div className="value">{matches.filter((m) => m.classe === "MEDIA").length}</div></div>
-        <div className="kpi"><div className="label">Opportunità mostrate</div><div className="value">{matches.length}</div></div>
+        <div className="kpi"><div className="label">Bandi adatti</div><div className="value">{matches.length}</div></div>
+        <div className="kpi"><div className="label">Per il suo settore</div><div className="value">{matches.filter((m) => m.motivi.some((x) => x.startsWith("settore"))).length}</div></div>
+        <div className="kpi"><div className="label">Dati mancanti</div><div className="value">{domande.mancanti.length}</div></div>
       </div>
 
       <div style={{ height: 18 }} />
+
+      {domande.mancanti.length > 0 && (
+        <section className="card" id="dati-mancanti" style={{ marginBottom: 18 }}>
+          <h2>Mancano dati per trovare i bandi giusti</h2>
+          <p className="muted">Rispondi a queste domande: finché mancano, alcuni bandi adatti a {customer.ragione_sociale} non possono essere proposti.</p>
+          {/* key: dopo il salvataggio restano solo le domande ancora aperte */}
+          <Questionario key={domande.mancanti.join()} clienti={[domande]} solo={domande} />
+        </section>
+      )}
 
       <details className="card">
         <summary style={{ cursor: "pointer", fontWeight: 800 }}>Modifica anagrafica cliente</summary>
@@ -110,30 +121,21 @@ export default async function CustomerDetail({
 
       <div style={{ height: 18 }} />
 
-      {!codiciCliente(customer.ateco || customer.anagrafica?.ateco).length && (
-        <div className="notice" style={{ marginBottom: 12 }}>
-          <b>Codice ATECO mancante o non leggibile.</b> Qui sotto compaiono solo i bandi per tutti i settori: inserisci l&apos;ATECO per vedere quelli del suo settore.
-        </div>
-      )}
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Score</th>
-              <th>Classe</th>
               <th>Bando</th>
               <th>Fonte</th>
               <th>Stato</th>
               <th>Scadenza</th>
-              <th>Dettaglio score</th>
+              <th>Perché si adatta</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {matches.slice(0, 250).map((match) => (
               <tr key={match.grant.id}>
-                <td><span className="score">{match.score_totale}</span>/100</td>
-                <td><StatusBadge value={match.classe} /></td>
                 <td>
                   <strong>{match.grant.title}</strong>
                   <div className="muted small">{match.grant.ente}</div>
@@ -141,10 +143,7 @@ export default async function CustomerDetail({
                 <td>{match.grant.source}</td>
                 <td><StatusBadge value={match.grant.status} /></td>
                 <td>{date(match.grant.deadline)}</td>
-                <td className="small">
-                  R {match.score_regione} · D {match.score_dimensione} · A {match.score_ateco} ·
-                  T {match.score_temi} · I {match.score_investimento} · C {match.score_tempistica}
-                </td>
+                <td className="small">{match.motivi.join(", ")}</td>
                 <td>
                   {match.grant.url ? (
                     <a className="btn secondary" href={match.grant.url} target="_blank" rel="noreferrer">Fonte</a>
@@ -152,7 +151,7 @@ export default async function CustomerDetail({
                 </td>
               </tr>
             ))}
-            {!matches.length && <tr><td colSpan={8} className="muted">Nessuna opportunità sopra la soglia.</td></tr>}
+            {!matches.length && <tr><td colSpan={6} className="muted">Nessun bando si adatta al cliente con i dati che abbiamo.</td></tr>}
           </tbody>
         </table>
       </div>

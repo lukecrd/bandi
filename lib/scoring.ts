@@ -15,6 +15,20 @@ export const SCORE_WEIGHTS = {
 const ATECO_GENERICO = 12;
 const MAX_DIVISIONI_MIRATO = 20;
 
+const TEMI = [
+  { key: "digitale", nome: "digitale", parole: ["digitale", "digital", "ai", "artificial intelligence"] },
+  { key: "green", nome: "energia e sostenibilità", parole: ["green", "energia", "energy", "climate", "environment", "circular"] },
+  { key: "ricerca_sviluppo", nome: "ricerca e innovazione", parole: ["r&s", "ricerca", "research", "innovation", "innovazione"] },
+  { key: "cloud_cyber", nome: "cloud e cybersecurity", parole: ["cloud", "cyber", "cybersecurity"] },
+  { key: "investimenti_beni", nome: "macchinari e beni strumentali", parole: ["investimenti", "investment", "beni", "strumentali"] },
+  { key: "export", nome: "export", parole: ["export", "internaz", "international"] },
+  { key: "formazione", nome: "formazione", parole: ["formazione", "training", "skills", "education"] },
+] as const;
+
+export function haTemi(customer: Customer) {
+  return TEMI.some(({ key }) => customer[key]);
+}
+
 function norm(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -23,7 +37,7 @@ function norm(value: unknown) {
     .replace(/\p{Diacritic}/gu, "");
 }
 
-function containsAny(haystack: string[], needles: string[]) {
+function containsAny(haystack: string[], needles: readonly string[]) {
   const text = norm(haystack.join(" ; "));
   // a inizio parola; le sigle ("ai") solo intere, altrimenti "ai" è in "aiuti"
   return needles.some((needle) => {
@@ -57,7 +71,8 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     : 0;
 
   // l'ATECO letto dalla visura vale se quello della scheda manca
-  const ammesso = atecoAmmesso(codiciCliente(customer.ateco || customer.anagrafica?.ateco), grant.ateco_filter);
+  const codici = codiciCliente(customer.ateco || customer.anagrafica?.ateco);
+  const ammesso = atecoAmmesso(codici, grant.ateco_filter);
   const apertoATutti = !grant.ateco_filter.length || grant.ateco_filter.includes("*");
   // punteggio pieno solo se il bando è rivolto al settore del cliente, non a mezza economia
   const mirato = new Set(grant.ateco_filter.map((f) => f.slice(0, 2))).size <= MAX_DIVISIONI_MIRATO;
@@ -65,37 +80,8 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     ? SCORE_WEIGHTS.ateco
     : ammesso || apertoATutti ? ATECO_GENERICO : 0;
 
-  let themePoints = 0;
-  if (
-    customer.digitale &&
-    containsAny(grant.topics, ["digitale", "digital", "ai", "artificial intelligence"])
-  ) themePoints += 5;
-  if (
-    customer.green &&
-    containsAny(grant.topics, ["green", "energia", "energy", "climate", "environment", "circular"])
-  ) themePoints += 5;
-  if (
-    customer.ricerca_sviluppo &&
-    containsAny(grant.topics, ["r&s", "ricerca", "research", "innovation", "innovazione"])
-  ) themePoints += 5;
-  if (
-    customer.cloud_cyber &&
-    containsAny(grant.topics, ["cloud", "cyber", "cybersecurity"])
-  ) themePoints += 5;
-  if (
-    customer.investimenti_beni &&
-    containsAny(grant.topics, ["investimenti", "investment", "beni", "strumentali"])
-  ) themePoints += 5;
-  if (
-    customer.export &&
-    containsAny(grant.topics, ["export", "internaz", "international"])
-  ) themePoints += 5;
-  if (
-    customer.formazione &&
-    containsAny(grant.topics, ["formazione", "training", "skills", "education"])
-  ) themePoints += 5;
-
-  const score_temi = Math.min(SCORE_WEIGHTS.temi, themePoints);
+  const temi = TEMI.filter(({ key, parole }) => customer[key] && containsAny(grant.topics, parole));
+  const score_temi = Math.min(SCORE_WEIGHTS.temi, temi.length * 5);
 
   const planned = customer.investimento_previsto_eur;
   let score_investimento = 5;
@@ -128,18 +114,27 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
   // l'ente; per Contributi Europa, che non lo indica, il titolo inizia con la Camera
   const camera = provinceCamera(grant.ente ?? grant.title.split(".")[0]);
   const esclusioni = [
+    !score_tempistica && "bando chiuso",
     !score_regione && "altra regione",
     comune && comune !== norm(customer.anagrafica?.sede_comune) && "solo imprese del Comune",
     prov && camera.length > 0 && !camera.includes(prov.sigla) && "Camera di Commercio di altra provincia",
     !score_dimensione && "altri beneficiari",
     ammesso === false && "altri settori ATECO",
     ammesso === null && !apertoATutti && "riservato a settori, ATECO del cliente mancante",
-    // call europee: in consorzio e su temi di ricerca, solo per chi ha dichiarato un tema in comune
-    grant.level === "UE" && !score_temi && "call UE senza temi in comune",
+    // call europee: in consorzio e di ricerca, servono la ricerca e un altro tema in comune
+    grant.level === "UE" && !(customer.ricerca_sviluppo && temi.length > 1) && "call UE senza temi in comune",
+    planned !== null && planned !== undefined && grant.invest_min_eur !== null && planned < grant.invest_min_eur
+      && "investimento sotto il minimo",
   ].filter((motivo): motivo is string => Boolean(motivo));
 
-  const classe =
-    score_totale >= 75 ? "ALTA" : score_totale >= 50 ? "MEDIA" : "BASSA";
+  // Essere ammessi non basta: ci vuole qualcosa che leghi il bando proprio a questo cliente.
+  const settori = codici.filter((c) => atecoAmmesso([c], grant.ateco_filter)).map((c) => c.slice(0, 2));
+  const motivi = [
+    ammesso && mirato && `settore ATECO ${[...new Set(settori)].join(", ")}`,
+    ...temi.map(({ nome }) => nome),
+    prov && camera.includes(prov.sigla) && "Camera di Commercio della sua provincia",
+    comune && comune === norm(customer.anagrafica?.sede_comune) && "Comune della sede",
+  ].filter((motivo): motivo is string => Boolean(motivo));
 
   return {
     grant,
@@ -151,7 +146,7 @@ export function scoreGrant(customer: Customer, grant: Grant): MatchResult {
     score_tempistica,
     score_totale,
     esclusioni,
-    classe,
+    motivi,
   };
 }
 
@@ -159,9 +154,9 @@ export function minMatchScore() {
   return Number(process.env.MATCH_MIN_SCORE ?? 50);
 }
 
-/** Sopra soglia e senza motivi di esclusione: il punteggio da solo non scarta un bando a cui il cliente non può partecipare. */
+/** Il cliente può partecipare e c'è almeno un motivo per proporglielo: il punteggio da solo serve a ordinare. */
 export function isMatch(match: MatchResult, min: number) {
-  return !match.esclusioni.length && match.score_totale >= min;
+  return !match.esclusioni.length && match.motivi.length > 0 && match.score_totale >= min;
 }
 
 export function scoreAll(customer: Customer, grants: Grant[]) {
