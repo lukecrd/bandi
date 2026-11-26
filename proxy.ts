@@ -9,6 +9,8 @@ export async function proxy(request: NextRequest) {
   if (
     PUBLIC_PATHS.includes(pathname) ||
     pathname.startsWith("/api/cron/") ||
+    // the CRM's server, authorized by CRM_API_KEY in the route
+    pathname.startsWith("/api/integrations/crm/") ||
     // bookmarklet downloads, authorized by the signed token in the path
     pathname.startsWith("/api/allegati/") ||
     pathname.startsWith("/_next/") ||
